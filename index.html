@@ -671,8 +671,10 @@ tbody tr:hover td { background: #1e2336; }
   <div class="fat-layout">
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div class="card">
-        <div class="card-title">🧾 Dados do Pedido</div>
-        <div class="form-grid">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>🧾 Dados do Pedido</span>
+          <button class="btn btn-blue btn-sm" onclick="exportarPDFFaturamento()">📄 Exportar PDF</button>
+        </div>        <div class="form-grid">
           <div class="form-row form-row-3">
             <div class="field"><label>Nº do Pedido *</label><input type="text" id="fat-num" placeholder="PED-001" oninput="pvUpdate()"></div>
             <div class="field"><label>Data do Pedido</label><input type="date" id="fat-data" oninput="pvUpdate()"></div>
@@ -761,6 +763,7 @@ tbody tr:hover td { background: #1e2336; }
 <!-- ── HISTÓRICO ── -->
 <div class="page" id="page-historico">
   <div class="hist-filters">
+    <button class="btn btn-blue btn-sm" onclick="exportarPDFHistorico()">📄 Exportar PDF</button>
     <input type="text" id="hist-search" placeholder="🔍  Buscar pedido, cliente..." oninput="renderHistorico()" style="width:260px;">
     <select id="hist-filter-status" onchange="renderHistorico()" style="width:160px;">
       <option value="">Todos os status</option>
@@ -778,7 +781,7 @@ tbody tr:hover td { background: #1e2336; }
   <div class="card">
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Itens</th><th>Status</th><th>Etiqueta</th><th></th></tr></thead>
+        <thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Itens / Lotes</th><th>Status</th><th>Etiqueta</th><th></th></tr></thead>
         <tbody id="hist-tbody"></tbody>
       </table>
       <div class="empty-state" id="hist-empty" style="display:none;">
@@ -791,10 +794,16 @@ tbody tr:hover td { background: #1e2336; }
 
 <!-- ── ETIQUETAS ── -->
 <div class="page" id="page-etiquetas">
-  <div style="display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
-    <input type="text" id="etiq-search" placeholder="🔍  Buscar etiqueta..." oninput="renderEtiquetas()" style="width:260px;">
-    <button class="btn btn-green" onclick="imprimirTodas()" style="margin-left:auto;">🖨️ Imprimir Todas</button>
-  </div>
+<div style="display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
+  <input type="text" id="etiq-search" placeholder="🔍  Buscar etiqueta..." oninput="renderEtiquetas()" style="width:260px;">
+  <select id="etiq-filter-status" onchange="renderEtiquetas()" style="width:160px;">
+    <option value="">Todas</option>
+    <option value="pendente">⏳ Pendentes</option>
+    <option value="impressa">✅ Impressas</option>
+  </select>
+  <span class="badge badge-gray" id="etiq-count-badge" style="margin-left:auto;">0</span>
+  <button class="btn btn-green" onclick="imprimirTodas()">🖨️ Imprimir Todas</button>
+</div>
   <div id="etiq-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;"></div>
   <div class="empty-state" id="etiq-empty" style="display:none;">
     <div class="empty-icon">🏷️</div><div class="empty-title">Nenhuma etiqueta</div>
@@ -802,9 +811,10 @@ tbody tr:hover td { background: #1e2336; }
   </div>
 </div>
 
-    <!-- ── CONFERÊNCIA ── (AQUI, dentro do .content) -->
+    <!-- ── CONFERÊNCIA ── -->
     <div class="page" id="page-conferencia">
       <div class="hist-filters">
+        <button class="btn btn-blue btn-sm" onclick="exportarPDFConferencia()">📄 Exportar PDF</button>
         <input type="text" id="conf-search" placeholder="🔍  Buscar pedido, cliente..."
           oninput="renderConferencia()" style="width:260px;">
         <select id="conf-filter-status" onchange="renderConferencia()" style="width:160px;">
@@ -821,7 +831,6 @@ tbody tr:hover td { background: #1e2336; }
         <div class="empty-desc">Os pedidos faturados aparecerão aqui para conferência de lote.</div>
       </div>
     </div>
-
   </div><!-- fecha .content -->
   </div><!-- fecha .main -->
 </div><!-- fecha .layout -->
@@ -845,7 +854,8 @@ tbody tr:hover td { background: #1e2336; }
 <div class="toast-container" id="toast-container"></div>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script><script>
 const SUPABASE_URL = "https://ptlchhomvugwkkcygmqi.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0bGNoaG9tdnVnd2trY3lnbXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjgyMTksImV4cCI6MjA5NzIwNDIxOX0.zfBQ0dXUSjp6-g29X3R3wUDh36B_G_DfXY0l3ydXd9Y";
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -945,7 +955,11 @@ function navTo(btn, pageId) {
   if (pageId === 'clientes')    renderClientes();
   if (pageId === 'produtos')    renderProdutos();
   if (pageId === 'historico')   renderHistorico();
-  if (pageId === 'etiquetas')   renderEtiquetas();
+  if (pageId === 'etiquetas') {
+  const filtro = document.getElementById('etiq-filter-status');
+  if (filtro && !filtro.value) filtro.value = 'pendente';
+  renderEtiquetas();
+}
   if (pageId === 'conferencia') { renderConferencia(); atualizarBadgeConferencia(); }
   if (pageId === 'faturamento') preencherNumeroPedido();
 }
@@ -1551,7 +1565,39 @@ function renderHistorico() {
       <td><strong>#${p.numero_pedido}</strong></td>
       <td>${new Date(p.data_pedido).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
       <td>${cliNome}</td>
-      <td><span class="badge badge-gray">${total} un</span></td>
+      <td>
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    ${p.pedido_itens?.map(i => {
+const lote = i.lote
+  ? `<span style="
+      font-family:var(--mono);
+      font-size:13px;
+      font-weight:700;
+      color:#fff;
+      background:var(--blue);
+      border-radius:4px;
+      padding:2px 8px;
+      letter-spacing:.5px;">
+      📦 LOTE: ${i.lote}
+    </span>`
+  : `<span style="
+      font-family:var(--mono);
+      font-size:15px;
+      color:var(--muted);
+      border:1px dashed var(--border2);
+      border-radius:4px;
+      padding:1px 6px;">
+      sem lote
+    </span>`;
+return `<div style="display:flex;flex-direction:column;gap:3px;padding:4px 0;border-bottom:1px dashed var(--border);">
+  <span style="font-size:12px;font-weight:600;">${i.produtos?.nome||'—'}</span>
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+    <span class="badge badge-amber" style="font-size:10px;">${i.quantidade} ${i.produtos?.unidade||'UN'}</span>
+    ${lote}
+  </div>
+</div>`;    }).join('') || `<span class="badge badge-gray">${total} un</span>`}
+  </div>
+</td>
       <td>
         <select onchange="alterarStatusPedido('${p.id}',this.value)" style="padding:2px 6px;font-size:12px;width:110px;">
           <option value="pendente"  ${p.status==='pendente' ?'selected':''}>Pendente</option>
@@ -1595,14 +1641,29 @@ function limparFiltros() {
 // ── ETIQUETAS ──
 function renderEtiquetas() {
   const search = (document.getElementById('etiq-search')?.value||'').toLowerCase();
+  const filtroStatus = document.getElementById('etiq-filter-status')?.value||'';
   const grid   = document.getElementById('etiq-grid');
   if (!grid) return;
   grid.innerHTML = '';
 
-  const filtrados = APP_STATE.pedidos.filter(p =>
-    (p.clientes?.nome||'').toLowerCase().includes(search) ||
-    (p.numero_pedido||'').toLowerCase().includes(search)
-  );
+  let filtrados = APP_STATE.pedidos.filter(p => {
+    const matchSearch =
+      (p.clientes?.nome||'').toLowerCase().includes(search) ||
+      (p.numero_pedido||'').toLowerCase().includes(search);
+    const impressa = !!p.impressa;
+    if (filtroStatus === 'pendente') return matchSearch && !impressa;
+    if (filtroStatus === 'impressa') return matchSearch && impressa;
+    return matchSearch;
+  });
+
+  // Pendentes sempre primeiro
+  filtrados.sort((a, b) => {
+    if (!!a.impressa === !!b.impressa) return 0;
+    return a.impressa ? 1 : -1;
+  });
+
+  const badge = document.getElementById('etiq-count-badge');
+  if (badge) badge.innerText = filtrados.length;
 
   document.getElementById('etiq-empty') &&
     (document.getElementById('etiq-empty').style.display = filtrados.length===0?'block':'none');
@@ -1850,6 +1911,264 @@ function atualizarBadgeConferencia() {
   const pendentes = APP_STATE.pedidos.filter(p => p.status !== 'finalizado').length;
   const badge = document.getElementById('badge-conf');
   if (badge) badge.innerText = pendentes;
+}
+
+// ── EXPORTAR PDF ──
+function getPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  return doc;
+}
+
+function pdfHeader(doc, titulo, subtitulo) {
+  doc.setFillColor(19, 22, 31);
+  doc.rect(0, 0, 210, 28, 'F');
+  doc.setTextColor(240, 165, 0);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RK INOVA', 14, 11);
+  doc.setTextColor(200, 200, 200);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gestão de Pedidos', 14, 17);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text(titulo, 14, 24);
+  if (subtitulo) {
+    doc.setTextColor(180, 180, 180);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(subtitulo, 210 - 14, 24, { align: 'right' });
+  }
+  return 32;
+}
+
+function pdfFooter(doc) {
+  const total = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFillColor(230, 230, 230);
+    doc.rect(0, 287, 210, 10, 'F');
+    doc.setTextColor(120, 120, 120);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`RK Inova — Gerado em ${new Date().toLocaleString('pt-BR')}`, 14, 293);
+    doc.text(`Página ${i} de ${total}`, 196, 293, { align: 'right' });
+  }
+}
+
+// PDF FATURAMENTO — resumo do pedido atual em montagem
+function exportarPDFFaturamento() {
+  const num   = document.getElementById('fat-num')?.value || '—';
+  const data  = document.getElementById('fat-data')?.value || '—';
+  const cli   = document.getElementById('fat-cli-input')?.value || '—';
+  const end   = document.getElementById('fat-cli-end')?.value || '—';
+  const cid   = document.getElementById('fat-cli-cidade')?.value || '—';
+  const transp= document.getElementById('fat-transp')?.value || '—';
+  const obs   = document.getElementById('fat-obs')?.value || '—';
+
+  if (APP_STATE.sacola.length === 0) return showToast("Adicione itens ao pedido antes de exportar.", "warn");
+
+  const doc = getPDF();
+  let y = pdfHeader(doc, `Pedido ${num}`, `Data: ${data}`);
+
+  // Bloco cliente
+  doc.setFillColor(30, 35, 54);
+  doc.rect(14, y, 182, 30, 'F');
+  doc.setTextColor(240, 165, 0);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DADOS DO PEDIDO', 18, y + 6);
+  doc.setTextColor(220, 220, 220);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`Cliente:       ${cli}`,   18, y + 13);
+  doc.text(`Endereço:      ${end}`,   18, y + 19);
+  doc.text(`Cidade/UF:     ${cid}`,   18, y + 25);
+  doc.text(`Transportadora: ${transp}`, 110, y + 13);
+  doc.text(`Observações:   ${obs}`,   110, y + 19);
+  y += 36;
+
+  // Tabela de itens
+  doc.autoTable({
+    startY: y,
+    head: [['Código', 'Produto', 'Unidade', 'Quantidade']],
+    body: APP_STATE.sacola.map(i => [
+      i.codigo || '—',
+      i.nome,
+      i.unidade || 'UN',
+      i.quantidade
+    ]),
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [240, 165, 0], textColor: [0, 0, 0], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+    margin: { left: 14, right: 14 }
+  });
+
+  pdfFooter(doc);
+  doc.save(`pedido-${num}.pdf`);
+  showToast("PDF do faturamento gerado!");
+}
+
+// PDF HISTÓRICO — todos os pedidos filtrados
+function exportarPDFHistorico() {
+  const search   = (document.getElementById('hist-search')?.value||'').toLowerCase();
+  const status   = document.getElementById('hist-filter-status')?.value||'';
+  const dateDe   = document.getElementById('hist-de')?.value||'';
+  const dateAte  = document.getElementById('hist-ate')?.value||'';
+
+  let filtrados = APP_STATE.pedidos.filter(p => {
+    const nome = (p.clientes?.nome||'').toLowerCase();
+    const num  = (p.numero_pedido||'').toLowerCase();
+    return (nome.includes(search)||num.includes(search))
+      && (!status  || p.status === status)
+      && (!dateDe  || p.data_pedido >= dateDe)
+      && (!dateAte || p.data_pedido <= dateAte);
+  });
+
+  if (!filtrados.length) return showToast("Nenhum pedido para exportar.", "warn");
+
+  const doc = getPDF();
+  let y = pdfHeader(doc, 'Histórico de Pedidos', `Total: ${filtrados.length} pedidos — ${new Date().toLocaleDateString('pt-BR')}`);
+
+  filtrados.forEach((p, idx) => {
+    const cliNome = p.clientes?.nome || '—';
+    const dataFmt = new Date(p.data_pedido).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    const itens   = p.pedido_itens || [];
+
+    // Verifica espaço na página
+    if (y > 240) { doc.addPage(); y = pdfHeader(doc, 'Histórico de Pedidos (cont.)', ''); }
+
+    // Cabeçalho do pedido
+    doc.setFillColor(25, 29, 40);
+    doc.rect(14, y, 182, 10, 'F');
+    doc.setTextColor(240, 165, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`#${p.numero_pedido}`, 18, y + 7);
+    doc.setTextColor(200, 200, 200);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(cliNome, 60, y + 7);
+    doc.text(dataFmt, 140, y + 7);
+    doc.text(p.status || 'pendente', 175, y + 7);
+    y += 12;
+
+    // Itens
+    if (itens.length) {
+      doc.autoTable({
+        startY: y,
+        head: [['Produto', 'Qtd', 'Unidade', 'Lote']],
+        body: itens.map(i => [
+          i.produtos?.nome || '—',
+          i.quantidade,
+          i.produtos?.unidade || 'UN',
+          i.lote || '—'
+        ]),
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [74, 144, 226], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 245, 250] },
+        margin: { left: 18, right: 14 },
+        tableWidth: 178
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    if (p.observacoes) {
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(8);
+      doc.text(`Obs: ${p.observacoes}`, 18, y);
+      y += 5;
+    }
+
+    // Linha separadora
+    doc.setDrawColor(50, 55, 80);
+    doc.line(14, y, 196, y);
+    y += 5;
+  });
+
+  pdfFooter(doc);
+  doc.save(`historico-pedidos-${new Date().toISOString().split('T')[0]}.pdf`);
+  showToast("PDF do histórico gerado!");
+}
+
+// PDF CONFERÊNCIA — pedidos com lotes
+function exportarPDFConferencia() {
+  const search = (document.getElementById('conf-search')?.value||'').toLowerCase();
+  const filtroStatus = document.getElementById('conf-filter-status')?.value||'';
+
+  let filtrados = APP_STATE.pedidos.filter(p => {
+    const nome = (p.clientes?.nome||'').toLowerCase();
+    const num  = (p.numero_pedido||'').toLowerCase();
+    const matchSearch = nome.includes(search) || num.includes(search);
+    const conferido = p.status === 'finalizado';
+    if (filtroStatus === 'pendente')  return matchSearch && !conferido;
+    if (filtroStatus === 'conferido') return matchSearch && conferido;
+    return matchSearch;
+  });
+
+  if (!filtrados.length) return showToast("Nenhum pedido para exportar.", "warn");
+
+  const doc = getPDF();
+  let y = pdfHeader(doc, 'Conferência de Pedidos', `Total: ${filtrados.length} pedidos — ${new Date().toLocaleDateString('pt-BR')}`);
+
+  filtrados.forEach((p) => {
+    const cliNome = p.clientes?.nome || '—';
+    const dataFmt = new Date(p.data_pedido).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    const itens   = p.pedido_itens || [];
+    const conferido = p.status === 'finalizado';
+
+    if (y > 230) { doc.addPage(); y = pdfHeader(doc, 'Conferência (cont.)', ''); }
+
+    // Cabeçalho
+    const corHeader = conferido ? [39, 174, 96] : [240, 165, 0];
+    doc.setFillColor(...corHeader);
+    doc.rect(14, y, 182, 11, 'F');
+    doc.setTextColor(conferido ? 255 : 0, conferido ? 255 : 0, conferido ? 255 : 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`#${p.numero_pedido}  —  ${cliNome}`, 18, y + 7);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`${dataFmt}   ${conferido ? '✓ Conferido' : '⏳ Pendente'}`, 160, y + 7, { align: 'right' });
+    y += 13;
+
+    // Itens com lote
+    doc.autoTable({
+      startY: y,
+      head: [['Produto', 'Código', 'Qtd', 'Unidade', 'Lote']],
+      body: itens.map(i => [
+        i.produtos?.nome || '—',
+        i.produtos?.codigo || '—',
+        i.quantidade,
+        i.produtos?.unidade || 'UN',
+        i.lote || 'Não informado'
+      ]),
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [30, 35, 54], textColor: [200, 200, 200], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 245, 250] },
+      columnStyles: { 4: { textColor: [74, 144, 226], fontStyle: 'bold' } },
+      margin: { left: 14, right: 14 }
+    });
+
+    y = doc.lastAutoTable.finalY + 4;
+
+    if (p.observacoes) {
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(8);
+      doc.text(`Obs: ${p.observacoes}`, 14, y);
+      y += 5;
+    }
+
+    doc.setDrawColor(50, 55, 80);
+    doc.line(14, y, 196, y);
+    y += 6;
+  });
+
+  pdfFooter(doc);
+  doc.save(`conferencia-${new Date().toISOString().split('T')[0]}.pdf`);
+  showToast("PDF da conferência gerado!");
 }
 </script>
 </body>
