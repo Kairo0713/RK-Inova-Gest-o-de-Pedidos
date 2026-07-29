@@ -221,7 +221,7 @@ tbody tr:hover td { background: #1e2336; }
 .etiq-hd-num { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
 .etiq-body { padding: 12px 14px; }
 .etiq-lbl { font-size: 9px; font-weight: 700; color: #888; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
-.etiq-val { font-size: 25px; font-weight: 700; color: #111; line-height: 1.3; margin-bottom: 8px; }
+.etiq-val { font-size: 50px; font-weight: 700; color: #111; line-height: 1.3; margin-bottom: 8px; }
 .etiq-val-sm { font-size: 11px; font-weight: 600; color: #333; line-height: 1.3; margin-bottom: 8px; }
 .etiq-div { height: 1px; background: #e5e5e5; margin: 8px 0; }
 .etiq-items-lbl { font-size: 9px; font-weight: 700; color: #888; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
@@ -368,6 +368,8 @@ tbody tr:hover td { background: #1e2336; }
 }
 .login-logo { text-align: center; margin-bottom: 24px; }
 .login-error { color: var(--red); font-size: 12px; margin-top: 6px; display: none; }
+
+#print-zone { display: none; }
 
 @page {
   size: 130mm 210mm portrait;
@@ -2634,9 +2636,9 @@ const rows = `
     <span style="text-align:center;">✓</span>
   </div>
   ${p.pedido_itens?.map(i => `
-  <div style="display:grid;grid-template-columns:1fr 60px 1cm;gap:4px;align-items:center;padding:3px 0;border-bottom:1px dashed #eee;font-size:15px;">
-    <span>${i.produtos?.nome||'Removido'}</span>
-    <span style="text-align:center;font-weight:700;">${i.quantidade} ${i.produtos?.unidade||'UN'}</span>
+  <div style="display:grid;grid-template-columns:1fr 60px 1cm;gap:4px;align-items:center;padding:3px 0;border-bottom:1px dashed #eee;">
+    <span style="font-size:20px;">${i.produtos?.nome||'Removido'}</span>
+    <span style="text-align:center;font-weight:700;font-size:15px;">${i.quantidade} ${i.produtos?.unidade||'UN'}</span>
     <span class="etiq-check-box" style="margin:0;"></span>
   </div>`).join('')||''}`;    
   return `
