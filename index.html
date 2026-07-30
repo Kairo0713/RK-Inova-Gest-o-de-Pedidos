@@ -1566,6 +1566,9 @@ async function getProdutosVinculados(clienteId) {
   if (!ids.length) return [];
   const { data, error } = await _supabase.from('produtos').select('*').in('id', ids);
   if (error) { console.error("Produtos vinculados:", error.message); return []; }
+  console.log("Cliente:", clienteId);
+  console.log("Vínculos:", APP_STATE.clienteProdutos.filter(cp => cp.cliente_id == clienteId));
+  console.log("IDs:", ids);
   return data || [];
 }
 
@@ -2449,6 +2452,8 @@ async function selectAcCliente_id(id) {
   document.getElementById('fat-cli-fields').style.display = 'grid';
 
   APP_STATE.produtosClienteAtual = await getProdutosVinculados(id);
+  console.log("Cliente:", c.nome);
+  console.log("Produtos vinculados:", APP_STATE.produtosClienteAtual);
   APP_STATE.mostrarTodosProdutos = false;
 
   closeAc('ac-cli');
@@ -2469,6 +2474,9 @@ function acProduto(val) {
     || String(p.codigo||'').toLowerCase().includes(token)
     || String(p.marca||'').toLowerCase().includes(token)
   );
+
+  console.log("Base:", base);
+  console.log("Matches:", matches);
 
   let html = '';
   if (usarVinculados) {
@@ -2604,9 +2612,17 @@ function addItem() {
   if (!prodId) return showToast("Selecione um produto válido da lista.", "warn");
   if (!qtd || qtd <= 0) return showToast(`Informe a quantidade em ${unidade}.`, "warn");
 
-  const produto = APP_STATE.produtos.find(p => p.id == prodId);
-  if (!produto) return;
+let produto = APP_STATE.produtosClienteAtual.find(p => p.id == prodId);
 
+if (!produto) {
+    produto = APP_STATE.produtos.find(p => p.id == prodId);
+}
+
+if (!produto) {
+    console.error("Produto não encontrado:", prodId);
+    showToast("Produto não encontrado.", "warn");
+    return;
+}
   const tipoPreco = getTipoPrecoSelecionado();
   const precoInicial = getPrecoCadastro(prodId, tipoPreco);
 
@@ -3119,15 +3135,31 @@ function acProdutoEdicao(val) {
   list.classList.add('open');
 }
 
-function selectAcProdutoEdicao_id(id) {
-  const p = APP_STATE.produtos.find(x => x.id == id);
+function selectAcProduto_id(id) {
+
+  let p = APP_STATE.produtosClienteAtual.find(x => x.id == id);
+
+  if (!p) {
+      p = APP_STATE.produtos.find(x => x.id == id);
+  }
+
   if (!p) return;
-  document.getElementById('edit-ped-prod-input').value   = `[${p.codigo}] ${p.nome}`;
-  document.getElementById('edit-ped-prod-id').value      = p.id;
-  document.getElementById('edit-ped-prod-unidade').value = p.unidade || 'UN';
-  const label = document.getElementById('edit-ped-qty-label');
+
+  document.getElementById('fat-prod-input').value = `[${p.codigo}] ${p.nome}`;
+  document.getElementById('fat-prod-id').value = p.id;
+  document.getElementById('fat-prod-unidade').value = p.unidade || 'UN';
+
+  const label = document.getElementById('fat-qty-label');
+  const qty = document.getElementById('fat-qty');
+
   if (label) label.innerText = `Quantidade (${p.unidade || 'UN'})`;
-  closeAc('ac-prod-edicao');
+
+  if (qty) {
+      qty.value = '';
+      qty.placeholder = `Ex: 5 ${p.unidade || 'UN'}`;
+  }
+
+  closeAc('ac-prod');
 }
 
 function addItemEdicao() {
