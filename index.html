@@ -997,6 +997,7 @@ tbody tr:hover td { background: #1e2336; }
     <div class="card">
       <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
         <input type="text" id="prod-search" placeholder="🔍  Buscar produto..." oninput="onProdSearchInput()" style="flex:1;min-width:200px;">
+        <button class="btn btn-ghost btn-sm" onclick="importarPlanilhaPrecosPorCliente()">📥 Importar Preços por Cliente</button>
         <select id="prod-page-size" onchange="onProdPageSizeChange()" style="width:130px;">
           <option value="100">100 por vez</option>
           <option value="500">500 por vez</option>
@@ -1011,7 +1012,7 @@ tbody tr:hover td { background: #1e2336; }
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Código</th><th>Nome</th><th>Un.</th><th>Preço A</th><th>Preço B</th><th>Preço C</th><th>Peso</th><th>CST</th><th>ICMS</th><th>NCM</th><th></th></tr></thead>
+          <thead><tr><th>Código</th><th>Nome</th><th>Un.</th><th>Preço A</th><th>Preço B</th><th>Preço C</th><th>Peso</th><th>CST</th><th>ICMS</th><th>NCM</th><th>Clientes Vinculados</th><th></th></tr></thead>
           <tbody id="prod-tbody"></tbody>
         </table>
         <div class="empty-state" id="prod-empty" style="display:none">
@@ -1349,8 +1350,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let APP_STATE = { 
-  clientes: [], produtos: [], pedidos: [], sacola: [], representantes: [], comissoes: [],
-  sacolaEdicao: [], pedidoEdicaoId: null, clienteProdutos: [], produtosClienteAtual: [],
+  clientes: [], produtos: [], produtosTodos: [], pedidos: [], sacola: [], representantes: [], comissoes: [],  sacolaEdicao: [], pedidoEdicaoId: null, clienteProdutos: [], produtosClienteAtual: [],
   mostrarTodosProdutos: false, produtosVinculadosTemp: [], produtoClientesVinculadosTemp: [],
   produtoClientesVinculadosEditTemp: [],
   produtosClienteEdicao: [], mostrarTodosProdutosEdicao: false,
@@ -1512,17 +1512,41 @@ async function carregarTodosOsDados() {
     await carregarProdutosPaginado(1, APP_STATE.produtosPageSize);
   } catch(e) { console.error(e); }
 
+  
+
+  try {
+    await carregarProdutosPaginado(1, APP_STATE.produtosPageSize);
+  } catch(e) { console.error(e); }
+
+  try {
+    await carregarProdutosTodos();
+  } catch(e) { console.error(e); }
+
   try {
     const resRep = await _supabase.from('representantes').select('*').order('nome');
     if (!resRep.error) APP_STATE.representantes = resRep.data || [];
     else console.error("Representantes:", resRep.error.message);
   } catch(e) { console.error(e); }
 
-  try {
-    const resCP = await _supabase.from('cliente_produtos').select('*');
-    if (!resCP.error) APP_STATE.clienteProdutos = resCP.data || [];
-    else console.error("Cliente-Produtos:", resCP.error.message);
-  } catch(e) { console.error(e); }
+  // Substitua o trecho que carrega cliente_produtos dentro de carregarTodosOsDados()
+// (o bloco try { const resCP = ... } catch(e) { ... }) por isto:
+
+try {
+  let todosCP = [];
+  let pagina = 0;
+  const TAMANHO_PAGINA = 1000;
+  while (true) {
+    const from = pagina * TAMANHO_PAGINA;
+    const to   = from + TAMANHO_PAGINA - 1;
+    const { data, error } = await _supabase.from('cliente_produtos').select('*').range(from, to);
+    if (error) { console.error("Cliente-Produtos:", error.message); break; }
+    todosCP = todosCP.concat(data || []);
+    if (!data || data.length < TAMANHO_PAGINA) break; // acabou
+    pagina++;
+  }
+  APP_STATE.clienteProdutos = todosCP;
+} catch(e) { console.error(e); }
+
 
   try {
     const resCom = await _supabase.from('comissoes').select('*').order('data_pedido', { ascending: false });
@@ -1560,6 +1584,12 @@ async function carregarProdutosPaginado(page = 1, pageSize = 100, termoBusca = '
   APP_STATE.produtosPage = page;
   APP_STATE.produtosPageSize = pageSize;
   APP_STATE.produtosSearchServer = termoBusca;
+}
+
+async function carregarProdutosTodos() {
+  const { data, error } = await _supabase.from('produtos').select('*').order('nome');
+  if (error) { console.error("Produtos (todos):", error.message); return; }
+  APP_STATE.produtosTodos = data || [];
 }
 
 async function getProdutosVinculados(clienteId) {
@@ -2053,6 +2083,7 @@ async function salvarProduto() {
     showToast("Produto salvo!");
     limparProduto();
     await carregarProdutosPaginado(APP_STATE.produtosPage, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+    await carregarProdutosTodos();
     renderProdutos();
   } catch(err) { showToast("Erro: " + err.message, "err"); }
 }
@@ -2100,6 +2131,11 @@ function renderProdutos() {
   document.getElementById('prod-page-info') && (document.getElementById('prod-page-info').innerText = `Página ${APP_STATE.produtosPage} de ${totalPaginas}`);
 
   filtrados.forEach(p => {
+    const clientesVinc = getClientesVinculados(p.id);
+    const clientesHTML = clientesVinc.length
+      ? clientesVinc.map(c => `<span class="badge badge-blue" style="margin:1px;">${c.nome}</span>`).join('')
+      : '<span style="color:var(--muted);font-size:12px;">—</span>';
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="badge badge-gray" style="font-family:var(--mono)">${p.codigo||'—'}</span></td>
@@ -2112,6 +2148,7 @@ function renderProdutos() {
       <td style="font-family:var(--mono)">${p.cst||'—'}</td>
       <td style="font-family:var(--mono)">${p.icms?Number(p.icms).toFixed(2).replace('.',',')+'%':'—'}</td>
       <td style="font-family:var(--mono)">${p.ncm||'—'}</td>
+      <td style="max-width:220px;">${clientesHTML}</td>
       <td class="td-actions">
         <button class="btn btn-ghost btn-xs" onclick="editarProduto('${p.id}')">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="deletarProduto('${p.id}')">🗑️</button>
@@ -2175,6 +2212,7 @@ async function salvarEdicaoProduto() {
 
     showToast("Produto atualizado!");
     await carregarProdutosPaginado(APP_STATE.produtosPage, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+    await carregarProdutosTodos();
     renderProdutos();
     voltarParaProdutos();
   } catch(err) { showToast("Erro: " + err.message, "err"); }
@@ -2199,6 +2237,7 @@ async function deletarProduto(id) {
     if (error) throw error;
     showToast("Produto removido.");
     await carregarProdutosPaginado(APP_STATE.produtosPage, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+    await carregarProdutosTodos();
     renderProdutos();
   } catch(err) { showToast("Erro: " + err.message, "err"); }
 }
@@ -2467,8 +2506,7 @@ function acProduto(val) {
   const token = String(val||'').toLowerCase().trim();
   const vinculados = APP_STATE.produtosClienteAtual || [];
   const usarVinculados = vinculados.length > 0 && !APP_STATE.mostrarTodosProdutos;
-  const base = usarVinculados ? vinculados : APP_STATE.produtos;
-
+  const base = usarVinculados ? vinculados : APP_STATE.produtosTodos;
   const matches = base.filter(p =>
     !token
     || String(p.nome||'').toLowerCase().includes(token)
@@ -2492,7 +2530,7 @@ function acProduto(val) {
     : matches.map(p =>
         `<div class="ac-item" onmousedown="selectAcProduto_id('${p.id}')">
           <div style="display:flex;flex-direction:column;gap:1px;flex:1;">
-            <span class="ac-item-name">${p.nome}</span>
+            <span class="ac-item-name">${p.nome} ${p.icms ? `<span style="color:var(--amber);font-family:var(--mono);font-size:11px;font-weight:700;">(ICMS ${Number(p.icms).toFixed(2).replace('.',',')}%)</span>` : ''}</span>
             ${p.marca?`<span class="ac-item-code">${p.marca}</span>`:''}
           </div>
           <span class="ac-item-code">${p.codigo||''}</span>
@@ -2509,10 +2547,10 @@ function mostrarTodosProdutosFat() {
 }
 
 function selectAcProduto_id(id) {
-  const p = APP_STATE.produtos.find(x => x.id == id);
+  const p = APP_STATE.produtosTodos.find(x => x.id == id);
   if (!p) return;
 
-  document.getElementById('fat-prod-input').value   = `[${p.codigo}] ${p.nome}`;
+  document.getElementById('fat-prod-input').value   = `[${p.codigo}] ${p.nome}${p.icms ? ` — ICMS ${Number(p.icms).toFixed(2).replace('.',',')}%` : ''}`;
   document.getElementById('fat-prod-id').value      = p.id;
   document.getElementById('fat-prod-unidade').value = p.unidade || 'UN';
 
@@ -2525,11 +2563,23 @@ function selectAcProduto_id(id) {
   closeAc('ac-prod');
 }
 
-function getPrecoCadastro(produtoId, tipoPreco) {
-  const p = APP_STATE.produtosClienteAtual.find(x => x.id == produtoId)
-         || APP_STATE.produtos.find(x => x.id == produtoId);
-  if (!p) return 0;
+function getPrecoCadastro(produtoId, tipoPreco, clienteId) {
   const tipo = (tipoPreco || 'A').toUpperCase();
+
+  // 1. Preço específico deste cliente para este produto (vindo da planilha)
+  if (clienteId) {
+    const vinc = APP_STATE.clienteProdutos.find(cp => cp.produto_id == produtoId && cp.cliente_id == clienteId);
+    if (vinc) {
+      if (tipo === 'C' && vinc.preco_c != null) return vinc.preco_c;
+      if (tipo === 'A' && vinc.preco_a != null) return vinc.preco_a;
+      if (tipo === 'B' && (vinc.preco_a != null || vinc.preco_c != null)) return (vinc.preco_a || 0) + (vinc.preco_c || 0);
+    }
+  }
+
+  // 2. Preço padrão de cadastro do produto (mesmo comportamento de hoje)
+  const p = APP_STATE.produtosClienteAtual.find(x => x.id == produtoId)
+         || APP_STATE.produtosTodos.find(x => x.id == produtoId);
+  if (!p) return 0;
   if (tipo === 'B') return (p.preco_a || 0) + (p.preco_c || 0);
   if (tipo === 'C') return p.preco_c || 0;
   return p.preco_a || 0;
@@ -2541,12 +2591,13 @@ function getTipoPrecoSelecionado() {
 
 function onChangeTipoPreco() {
   const tipoPreco = getTipoPrecoSelecionado();
+  const clienteAtualId = document.getElementById('fat-cli-id').value;
   APP_STATE.sacola.forEach(item => {
     const produto = APP_STATE.produtosClienteAtual.find(p => p.id == item.produto_id)
                  || APP_STATE.produtos.find(p => p.id == item.produto_id);
     item.precoA = produto?.preco_a || 0;
     item.precoC = produto?.preco_c || 0;
-    item.preco  = getPrecoCadastro(item.produto_id, tipoPreco);
+    item.preco  = getPrecoCadastro(item.produto_id, tipoPreco, clienteAtualId);
   });
   renderSacola();
 }
@@ -2561,8 +2612,8 @@ function acProdutoVinculo(val) {
   if (!list) return;
   const token = String(val||'').toLowerCase().trim();
   const jaVinculados = APP_STATE.produtosVinculadosTemp.map(p => p.id);
-  const matches = APP_STATE.produtos.filter(p =>
-    !jaVinculados.includes(p.id) &&
+  const matches = APP_STATE.produtosTodos.filter(p =>   
+   !jaVinculados.includes(p.id) &&
     (!token
       || String(p.nome||'').toLowerCase().includes(token)
       || String(p.codigo||'').toLowerCase().includes(token))
@@ -2579,7 +2630,7 @@ function acProdutoVinculo(val) {
 }
 
 function adicionarProdutoVinculo(produtoId) {
-  const p = APP_STATE.produtos.find(x => x.id == produtoId);
+  const p = APP_STATE.produtosTodos.find(x => x.id == produtoId);
   if (!p) return;
   APP_STATE.produtosVinculadosTemp.push(p);
   document.getElementById('vinc-prod-input').value = '';
@@ -2618,7 +2669,7 @@ function addItem() {
 let produto = APP_STATE.produtosClienteAtual.find(p => p.id == prodId);
 
 if (!produto) {
-    produto = APP_STATE.produtos.find(p => p.id == prodId);
+    produto = APP_STATE.produtosTodos.find(p => p.id == prodId);
 }
 
 if (!produto) {
@@ -2626,9 +2677,11 @@ if (!produto) {
     showToast("Produto não encontrado.", "warn");
     return;
 }
-  const tipoPreco = getTipoPrecoSelecionado();
-  const precoInicial = getPrecoCadastro(prodId, tipoPreco);
 
+
+const tipoPreco = getTipoPrecoSelecionado();
+  const clienteAtualId = document.getElementById('fat-cli-id').value;
+  const precoInicial = getPrecoCadastro(prodId, tipoPreco, clienteAtualId);
   const existente = APP_STATE.sacola.find(i => i.produto_id == prodId);
   if (existente) {
     existente.quantidade += qtd;
@@ -3085,6 +3138,8 @@ async function editarPedido(id) {
   if (!p) return showToast("Pedido não encontrado.", "err");
 
   APP_STATE.pedidoEdicaoId = id;
+  APP_STATE.clienteIdEdicao = p.cliente_id;
+  APP_STATE.pedidoEdicaoId = id;
   APP_STATE.produtosClienteEdicao = await getProdutosVinculados(p.cliente_id);
   APP_STATE.mostrarTodosProdutosEdicao = false;
   APP_STATE.sacolaEdicao = (p.pedido_itens || []).map(i => ({
@@ -3127,8 +3182,7 @@ function acProdutoEdicao(val) {
   const token = String(val||'').toLowerCase().trim();
   const vinculados = APP_STATE.produtosClienteEdicao || [];
   const usarVinculados = vinculados.length > 0 && !APP_STATE.mostrarTodosProdutosEdicao;
-  const base = usarVinculados ? vinculados : APP_STATE.produtos;
-
+  const base = usarVinculados ? vinculados : APP_STATE.produtosTodos;
   const matches = base.filter(p =>
     !token
     || String(p.nome||'').toLowerCase().includes(token)
@@ -3160,7 +3214,7 @@ function acProdutoEdicao(val) {
 
 function selectAcProdutoEdicao_id(id) {
   let p = (APP_STATE.produtosClienteEdicao || []).find(x => x.id == id);
-  if (!p) p = APP_STATE.produtos.find(x => x.id == id);
+  if (!p) p = APP_STATE.produtosTodos.find(x => x.id == id);
   if (!p) return;
 
   document.getElementById('edit-ped-prod-input').value   = `[${p.codigo}] ${p.nome}`;
@@ -3185,7 +3239,7 @@ function selectAcProduto_id(id) {
   let p = APP_STATE.produtosClienteAtual.find(x => x.id == id);
 
   if (!p) {
-      p = APP_STATE.produtos.find(x => x.id == id);
+      p = APP_STATE.produtosTodos.find(x => x.id == id);
   }
 
   if (!p) return;
@@ -3216,12 +3270,11 @@ function addItemEdicao() {
   if (!qtd || qtd <= 0) return showToast(`Informe a quantidade em ${unidade}.`, "warn");
 
   let produto = (APP_STATE.produtosClienteEdicao || []).find(p => p.id == prodId);
-  if (!produto) produto = APP_STATE.produtos.find(p => p.id == prodId);
+  if (!produto) produto = APP_STATE.produtosTodos.find(p => p.id == prodId);
   if (!produto) return showToast("Produto não encontrado.", "warn");
 
   const tipoPreco = document.getElementById('fat-tipo-preco')?.value || 'A';
-  const precoInicial = getPrecoCadastro(prodId, tipoPreco);
-
+  const precoInicial = getPrecoCadastro(prodId, tipoPreco, APP_STATE.clienteIdEdicao);
   const existente = APP_STATE.sacolaEdicao.find(i => i.produto_id == prodId);
   if (existente) {
     existente.quantidade += qtd;
@@ -3598,12 +3651,21 @@ async function importarClientes(registros) {
     });
 
     // Resolve o nome do representante para o ID correspondente
-    if (obj.representante_nome) {
-      const nomeRep = String(obj.representante_nome).toLowerCase().trim();
+    const nomeRepRaw = String(obj.representante_nome || '').trim();
+    if (nomeRepRaw) {
+      const nomeRep = nomeRepRaw.toLowerCase();
       const rep = APP_STATE.representantes.find(r => String(r.nome||'').toLowerCase().trim() === nomeRep);
       obj.representante_id = rep ? rep.id : null;
+    } else {
+      obj.representante_id = null;
     }
     delete obj.representante_nome;
+
+    // Sanitização geral: qualquer string vazia vira null
+    // (evita erro "invalid input syntax for type numeric/uuid/date: ''")
+    Object.keys(obj).forEach(key => {
+      if (obj[key] === '') obj[key] = null;
+    });
 
     return obj;
   }).filter(o => o.nome);
@@ -3619,6 +3681,107 @@ async function importarClientes(registros) {
   } catch(err) { showToast("Erro na importação: " + err.message, "err"); }
 }
 
+// ── IMPORTAR PLANILHA NO FORMATO "1 LINHA POR CLIENTE/PREÇO" ──
+// Agrupa por Código, cria 1 produto por código, e grava o preço
+// específico de cada cliente na tabela cliente_produtos (colunas preco_a/preco_c).
+
+async function importarPlanilhaPrecosPorCliente() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const texto = await file.text();
+    const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean);
+    if (linhas.length < 2) return showToast("CSV vazio ou inválido.", "warn");
+
+    const cabecalho = linhas[0].replace(/^\uFEFF/, '').split(';').map(c => c.replace(/"/g,'').trim());
+    const registros = [];
+    for (let i = 1; i < linhas.length; i++) {
+      const cols = linhas[i].split(';').map(c => c.replace(/^"|"$/g,'').trim());
+      const obj = {};
+      cabecalho.forEach((h, idx) => obj[h] = cols[idx] ?? '');
+      registros.push(obj);
+    }
+
+    const numBR = v => parseFloat(String(v ?? '').replace(',', '.')) || 0;
+
+    // 1) Agrupa as linhas por Código
+    const porCodigo = {};
+    registros.forEach(r => {
+      const codigo = (r['Código'] || '').trim();
+      if (!codigo) return;
+      if (!porCodigo[codigo]) porCodigo[codigo] = [];
+      porCodigo[codigo].push(r);
+    });
+
+    const codigos = Object.keys(porCodigo);
+    showToast(`Encontrados ${codigos.length} produtos únicos em ${registros.length} linhas. Importando...`, "warn");
+
+    let produtosCriados = 0, vinculosCriados = 0, vinculosFalhos = 0;
+    const clientesNaoEncontrados = new Set();
+
+    for (const codigo of codigos) {
+      const linhasDoProduto = porCodigo[codigo];
+      const primeira = linhasDoProduto[0];
+
+      // 2) Cria UM produto (dados fixos vêm da primeira linha do grupo)
+      const payloadProduto = {
+        codigo,
+        nome: primeira['Nome'] || codigo,
+        unidade: primeira['Unidade'] || 'KG',
+        peso: numBR(primeira['Peso(kg)']),
+        preco_a: 0, preco_b: 0, preco_c: 0, // preço fica por cliente, não global
+        cst: primeira['CST'] || '',
+        icms: numBR(primeira['ICMS(%)']),
+        ncm: primeira['NCM'] || ''
+      };
+
+      const { data, error } = await _supabase.from('produtos').insert([payloadProduto]).select();
+      if (error || !data?.[0]) { console.warn('Falha ao criar produto', codigo, error); continue; }
+      const produtoId = data[0].id;
+      produtosCriados++;
+
+      // 3) Para cada linha do grupo, resolve o cliente e grava o preço dele
+      for (const linha of linhasDoProduto) {
+        const nomeCliente = (linha['Clientes Vinculados'] || '').trim();
+        if (!nomeCliente) continue;
+        const cliente = APP_STATE.clientes.find(c => String(c.nome||'').toLowerCase().trim() === nomeCliente.toLowerCase());
+        if (!cliente) { clientesNaoEncontrados.add(nomeCliente); continue; }
+
+        const precoA = numBR(linha['Preço A']);
+        const precoC = numBR(linha['Preço C']);
+
+        const { error: errVinc } = await _supabase.from('cliente_produtos').insert([{
+          cliente_id: cliente.id,
+          produto_id: produtoId,
+          preco_a: precoA || null,
+          preco_c: precoC || null
+        }]);
+        if (errVinc) vinculosFalhos++; else vinculosCriados++;
+      }
+    }
+
+    showToast(
+      `${produtosCriados} produto(s) criado(s), ${vinculosCriados} vínculo(s) com preço criado(s)` +
+      `${vinculosFalhos ? `, ${vinculosFalhos} vínculo(s) falharam` : ''}!`,
+      (vinculosFalhos || clientesNaoEncontrados.size) ? "warn" : "success"
+    );
+
+    if (clientesNaoEncontrados.size) {
+      console.warn("Clientes do CSV não encontrados no cadastro:", Array.from(clientesNaoEncontrados));
+      showToast(`Atenção: ${clientesNaoEncontrados.size} cliente(s) da planilha não existem no cadastro. Veja o console (F12) para a lista, cadastre-os e importe de novo.`, "warn");
+    }
+
+    await carregarProdutosPaginado(APP_STATE.produtosPage, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+    await carregarProdutosTodos();
+    await carregarTodosOsDados();
+    renderProdutos();
+  };
+  input.click();
+}
+
 async function importarProdutos(registros) {
   const mapaColuna = {
     'Código':'codigo','Nome':'nome','Unidade':'unidade','Peso(kg)':'peso',
@@ -3630,48 +3793,102 @@ async function importarProdutos(registros) {
     'cst':'cst','icms':'icms','ncm':'ncm','clientes_vinculados':'clientes_vinculados'
   };
 
+  const numBR = v => parseFloat(String(v ?? '').replace(',', '.')) || 0;
+
   const registrosProcessados = registros.map(r => {
     const obj = {};
     Object.entries(r).forEach(([k, v]) => {
       const campo = mapaColuna[k];
       if (campo) obj[campo] = v;
     });
-    if (obj.peso)    obj.peso    = parseFloat(String(obj.peso).replace(',','.'))    || 0;
-    if (obj.preco_a) obj.preco_a = parseFloat(String(obj.preco_a).replace(',','.')) || 0;
-    if (obj.preco_b) obj.preco_b = parseFloat(String(obj.preco_b).replace(',','.')) || 0;
-    if (obj.preco_c) obj.preco_c = parseFloat(String(obj.preco_c).replace(',','.')) || 0;
-    if (obj.icms)    obj.icms    = parseFloat(String(obj.icms).replace(',','.'))    || 0;
+    obj.peso    = numBR(obj.peso);
+    obj.preco_a = numBR(obj.preco_a);
+    obj.preco_b = numBR(obj.preco_b);
+    obj.preco_c = numBR(obj.preco_c);
+    obj.icms    = numBR(obj.icms);
+    obj.unidade = obj.unidade || 'UN';
+    obj.codigo  = (obj.codigo || '').trim();
+    obj.nome    = (obj.nome || '').trim();
+    obj.cst     = (obj.cst || '').trim();
+    obj.ncm     = (obj.ncm || '').trim();
     return obj;
   }).filter(o => o.codigo && o.nome);
 
   if (!registrosProcessados.length) return showToast("Nenhum produto válido encontrado no CSV. Verifique se o CSV tem as colunas 'Código' e 'Nome'.", "warn");
 
-  const payload = registrosProcessados.map(({clientes_vinculados, ...rest}) => rest);
+  showToast(`Importando ${registrosProcessados.length} linha(s) da planilha, exatamente como estão...`, "warn");
 
-  try {
-    const { data, error } = await _supabase.from('produtos').insert(payload).select();
-    if (error) throw error;
+  const mapaClientes = new Map();
+  APP_STATE.clientes.forEach(c => mapaClientes.set(String(c.nome||'').toLowerCase().trim(), c.id));
 
-    // Recria vínculos com clientes com base na coluna "Clientes Vinculados" (nomes separados por vírgula)
-    const vinculos = [];
-    data.forEach((produtoInserido, idx) => {
-      const nomesClientes = (registrosProcessados[idx].clientes_vinculados || '')
-        .split(',').map(n => n.trim()).filter(Boolean);
-      nomesClientes.forEach(nome => {
-        const cliente = APP_STATE.clientes.find(c => String(c.nome||'').toLowerCase().trim() === nome.toLowerCase());
-        if (cliente) vinculos.push({ cliente_id: cliente.id, produto_id: produtoInserido.id });
-      });
+  let produtosCriados = 0, falhasProduto = 0;
+  const vinculos = [];
+  const clientesNaoEncontrados = new Set();
+
+  // Insere CADA LINHA individualmente (1 produto por linha), mas em paralelo
+  // controlado (CONCORRENCIA por vez). Cada insert devolve o id exato daquela
+  // linha — sem qualquer chance de embaralhar produto x cliente.
+  async function inserirLinha(o) {
+    const payload = {
+      codigo: o.codigo, nome: o.nome, unidade: o.unidade, peso: o.peso,
+      preco_a: o.preco_a, preco_b: o.preco_b, preco_c: o.preco_c,
+      cst: o.cst, icms: o.icms, ncm: o.ncm
+    };
+    const { data, error } = await _supabase.from('produtos').insert([payload]).select('id');
+    if (error || !data?.[0]) { falhasProduto++; return; }
+    produtosCriados++;
+    const produtoId = data[0].id;
+
+    const nomesClientes = (o.clientes_vinculados || '').split(',').map(n => n.trim()).filter(Boolean);
+    nomesClientes.forEach(nomeCliente => {
+      const clienteId = mapaClientes.get(nomeCliente.toLowerCase());
+      if (!clienteId) { clientesNaoEncontrados.add(nomeCliente); return; }
+      vinculos.push({ cliente_id: clienteId, produto_id: produtoId });
     });
-    if (vinculos.length) {
-      await _supabase.from('cliente_produtos').insert(vinculos);
+  }
+
+  const CONCORRENCIA = 15;
+  for (let i = 0; i < registrosProcessados.length; i += CONCORRENCIA) {
+    const grupo = registrosProcessados.slice(i, i + CONCORRENCIA);
+    await Promise.all(grupo.map(inserirLinha));
+    showToast(`Produtos: ${Math.min(i + CONCORRENCIA, registrosProcessados.length)}/${registrosProcessados.length}`, "warn");
+  }
+
+  // Insere os vínculos em lote (aqui não tem risco de embaralhar,
+  // cada objeto já carrega o produto_id certo)
+  let vinculosCriados = 0, vinculosFalhos = 0;
+  const TAMANHO_LOTE = 500;
+  for (let i = 0; i < vinculos.length; i += TAMANHO_LOTE) {
+    const lote = vinculos.slice(i, i + TAMANHO_LOTE);
+    const { error } = await _supabase.from('cliente_produtos').insert(lote);
+    if (!error) {
+      vinculosCriados += lote.length;
+    } else {
+      for (const v of lote) {
+        const { error: errUnico } = await _supabase.from('cliente_produtos').insert([v]);
+        if (!errUnico) vinculosCriados++; else vinculosFalhos++;
+      }
     }
+    showToast(`Vínculos: ${Math.min(i + TAMANHO_LOTE, vinculos.length)}/${vinculos.length}`, "warn");
+  }
 
-    showToast(`${payload.length} produto(s) importado(s)!`);
-    await carregarTodosOsDados();
-    renderProdutos();
-  } catch(err) { showToast("Erro na importação: " + err.message, "err"); }
+  showToast(
+    `${produtosCriados} produto(s) importado(s), ${vinculosCriados} vínculo(s) criado(s)` +
+    `${vinculosFalhos ? `, ${vinculosFalhos} vínculo(s) falharam` : ''}` +
+    `${falhasProduto ? `, ${falhasProduto} linha(s) falharam` : ''}!`,
+    (vinculosFalhos || falhasProduto || clientesNaoEncontrados.size) ? "warn" : "success"
+  );
+
+  if (clientesNaoEncontrados.size) {
+    console.warn("Clientes do CSV não encontrados no cadastro:", Array.from(clientesNaoEncontrados));
+    showToast(`Atenção: ${clientesNaoEncontrados.size} nome(s) de cliente no CSV não bateram com nenhum cadastro. Veja o console (F12).`, "warn");
+  }
+
+  await carregarProdutosPaginado(APP_STATE.produtosPage, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+  await carregarProdutosTodos();
+  await carregarTodosOsDados();
+  renderProdutos();
 }
-
 
 function showToast(msg, type='success') {
   const c = document.getElementById('toast-container');
