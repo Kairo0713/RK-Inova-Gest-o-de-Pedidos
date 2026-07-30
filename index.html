@@ -1353,6 +1353,7 @@ let APP_STATE = {
   sacolaEdicao: [], pedidoEdicaoId: null, clienteProdutos: [], produtosClienteAtual: [],
   mostrarTodosProdutos: false, produtosVinculadosTemp: [], produtoClientesVinculadosTemp: [],
   produtoClientesVinculadosEditTemp: [],
+  produtosClienteEdicao: [], mostrarTodosProdutosEdicao: false,
   // ── NOVO ──
   produtosPage: 1,
   produtosPageSize: 100,
@@ -2525,7 +2526,8 @@ function selectAcProduto_id(id) {
 }
 
 function getPrecoCadastro(produtoId, tipoPreco) {
-  const p = APP_STATE.produtos.find(x => x.id == produtoId);
+  const p = APP_STATE.produtosClienteAtual.find(x => x.id == produtoId)
+         || APP_STATE.produtos.find(x => x.id == produtoId);
   if (!p) return 0;
   const tipo = (tipoPreco || 'A').toUpperCase();
   if (tipo === 'B') return (p.preco_a || 0) + (p.preco_c || 0);
@@ -2540,7 +2542,8 @@ function getTipoPrecoSelecionado() {
 function onChangeTipoPreco() {
   const tipoPreco = getTipoPrecoSelecionado();
   APP_STATE.sacola.forEach(item => {
-    const produto = APP_STATE.produtos.find(p => p.id == item.produto_id);
+    const produto = APP_STATE.produtosClienteAtual.find(p => p.id == item.produto_id)
+                 || APP_STATE.produtos.find(p => p.id == item.produto_id);
     item.precoA = produto?.preco_a || 0;
     item.precoC = produto?.preco_c || 0;
     item.preco  = getPrecoCadastro(item.produto_id, tipoPreco);
@@ -2762,6 +2765,7 @@ async function gerarPedido() {
 const {data: pedData, error: pedErr} = await _supabase.from('pedidos').insert([
       { numero_pedido: num, data_pedido: data, transportadora: transp, cliente_id: cliId, observacoes: obs,
         tipo_preco: getTipoPrecoSelecionado(),
+        status: 'pendente',
         faturado_por: sessao.nome || sessao.usuario || 'Desconhecido' }
     ]).select();
     if (pedErr) throw pedErr;
@@ -3076,11 +3080,13 @@ async function deletarPedido(id) {
 }
 
 // ── EDITAR PEDIDO ──
-function editarPedido(id) {
+async function editarPedido(id) {
   const p = APP_STATE.pedidos.find(x => x.id == id);
   if (!p) return showToast("Pedido não encontrado.", "err");
 
   APP_STATE.pedidoEdicaoId = id;
+  APP_STATE.produtosClienteEdicao = await getProdutosVinculados(p.cliente_id);
+  APP_STATE.mostrarTodosProdutosEdicao = false;
   APP_STATE.sacolaEdicao = (p.pedido_itens || []).map(i => ({
     item_id: i.id,
     produto_id: i.produto_id,
@@ -3108,6 +3114,8 @@ function editarPedido(id) {
 function voltarParaHistoricoEdicao() {
   APP_STATE.sacolaEdicao = [];
   APP_STATE.pedidoEdicaoId = null;
+  APP_STATE.produtosClienteEdicao = [];
+  APP_STATE.mostrarTodosProdutosEdicao = false;
   const pg = document.getElementById('page-editar-pedido');
   if (pg) { pg.style.removeProperty('display'); pg.classList.remove('active'); }
   navToBtn('historico');
@@ -3117,12 +3125,25 @@ function acProdutoEdicao(val) {
   const list = document.getElementById('ac-prod-edicao');
   if (!list) return;
   const token = String(val||'').toLowerCase().trim();
-  const matches = APP_STATE.produtos.filter(p =>
+  const vinculados = APP_STATE.produtosClienteEdicao || [];
+  const usarVinculados = vinculados.length > 0 && !APP_STATE.mostrarTodosProdutosEdicao;
+  const base = usarVinculados ? vinculados : APP_STATE.produtos;
+
+  const matches = base.filter(p =>
     !token
     || String(p.nome||'').toLowerCase().includes(token)
     || String(p.codigo||'').toLowerCase().includes(token)
   );
-  list.innerHTML = matches.length === 0
+
+  let html = '';
+  if (usarVinculados) {
+    html += `<div class="ac-item" style="cursor:default;background:var(--surface);" onmousedown="event.preventDefault()">
+      <span style="font-size:11px;color:var(--muted);flex:1;">📌 Produtos deste cliente</span>
+      <span class="ac-item-code" style="cursor:pointer;color:var(--blue);" onmousedown="mostrarTodosProdutosEdicaoFn()">Ver todos os produtos</span>
+    </div>`;
+  }
+
+  html += matches.length === 0
     ? '<div class="ac-empty">Nenhum produto encontrado</div>'
     : matches.map(p =>
         `<div class="ac-item" onmousedown="selectAcProdutoEdicao_id('${p.id}')">
@@ -3132,7 +3153,31 @@ function acProdutoEdicao(val) {
           <span class="ac-item-code">${p.codigo||''}</span>
         </div>`
       ).join('');
+
+  list.innerHTML = html;
   list.classList.add('open');
+}
+
+function selectAcProdutoEdicao_id(id) {
+  let p = (APP_STATE.produtosClienteEdicao || []).find(x => x.id == id);
+  if (!p) p = APP_STATE.produtos.find(x => x.id == id);
+  if (!p) return;
+
+  document.getElementById('edit-ped-prod-input').value   = `[${p.codigo}] ${p.nome}`;
+  document.getElementById('edit-ped-prod-id').value      = p.id;
+  document.getElementById('edit-ped-prod-unidade').value = p.unidade || 'UN';
+
+  const label = document.getElementById('edit-ped-qty-label');
+  const qty   = document.getElementById('edit-ped-qty');
+  if (label) label.innerText = `Quantidade (${p.unidade || 'UN'})`;
+  if (qty)   { qty.value = ''; qty.placeholder = `Ex: 5 ${p.unidade||'UN'}`; }
+
+  closeAc('ac-prod-edicao');
+}
+
+function mostrarTodosProdutosEdicaoFn() {
+  APP_STATE.mostrarTodosProdutosEdicao = true;
+  acProdutoEdicao(document.getElementById('edit-ped-prod-input').value);
 }
 
 function selectAcProduto_id(id) {
@@ -3170,8 +3215,9 @@ function addItemEdicao() {
   if (!prodId) return showToast("Selecione um produto válido da lista.", "warn");
   if (!qtd || qtd <= 0) return showToast(`Informe a quantidade em ${unidade}.`, "warn");
 
-  const produto = APP_STATE.produtos.find(p => p.id == prodId);
-  if (!produto) return;
+  let produto = (APP_STATE.produtosClienteEdicao || []).find(p => p.id == prodId);
+  if (!produto) produto = APP_STATE.produtos.find(p => p.id == prodId);
+  if (!produto) return showToast("Produto não encontrado.", "warn");
 
   const tipoPreco = document.getElementById('fat-tipo-preco')?.value || 'A';
   const precoInicial = getPrecoCadastro(prodId, tipoPreco);
