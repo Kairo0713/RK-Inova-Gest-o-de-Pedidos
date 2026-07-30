@@ -928,6 +928,20 @@ tbody tr:hover td { background: #1e2336; }
         <div class="field"><label>Prazo de Pagamento</label><input type="text" id="edit-cli-prazo" placeholder="Ex: 30/60/90 dias"></div>
       </div>
       <div class="field"><label>Observações</label><textarea id="edit-cli-obs" rows="3" placeholder="Obs. internas..."></textarea></div>
+
+      <div class="divider" style="margin:4px 0;"></div>
+      <div class="card-title" style="margin-bottom:10px;">📦 Produtos Vinculados</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:flex-end;">
+        <div class="field" style="flex:1;">
+          <div class="autocomplete-wrap">
+            <input type="text" id="vinc-prod-input" placeholder="🔍 Buscar produto para vincular..."
+              autocomplete="off" oninput="acProdutoVinculo(this.value)" onfocus="acProdutoVinculo('')" onblur="setTimeout(()=>closeAc('ac-prod-vinc'),200)">
+            <div class="autocomplete-list" id="ac-prod-vinc"></div>
+          </div>
+        </div>
+      </div>
+      <div id="vinc-prod-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+
       <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end;">
         <button class="btn btn-ghost" onclick="voltarParaClientes()">Anular / Voltar</button>
         <button class="btn btn-primary" onclick="salvarEdicaoCliente()">💾 Salvar Alterações</button>
@@ -955,6 +969,15 @@ tbody tr:hover td { background: #1e2336; }
         </div>
         <div class="field"><label>Nome do Produto *</label><input type="text" id="prod-nome" placeholder="Descrição do produto"></div>
         <div class="field"><label>Peso (kg)</label><input type="number" id="prod-peso" placeholder="0.000" step="0.001" value="1"></div>
+        <div class="field">
+        <label>Clientes Vinculados</label>
+        <div class="autocomplete-wrap">
+          <input type="text" id="prod-cli-input" placeholder="🔍 Buscar cliente para vincular..."
+            autocomplete="off" oninput="acClienteVinculo(this.value)" onfocus="acClienteVinculo('')" onblur="setTimeout(()=>closeAc('ac-cli-vinc'),200)">
+          <div class="autocomplete-list" id="ac-cli-vinc"></div>
+        </div>
+        <div id="prod-cli-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+        </div>
         <div class="form-row form-row-3">
           <div class="field"><label>Preço A</label><input type="number" id="prod-preco-a" placeholder="0,00" step="0.01"></div>
           <div class="field"><label>Preço B</label><input type="number" id="prod-preco-b" placeholder="0,00" step="0.01"></div>
@@ -972,9 +995,19 @@ tbody tr:hover td { background: #1e2336; }
       </div>
     </div>
     <div class="card">
-      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
-        <input type="text" id="prod-search" placeholder="🔍  Buscar produto..." oninput="renderProdutos()" style="flex:1">
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="prod-search" placeholder="🔍  Buscar produto..." oninput="onProdSearchInput()" style="flex:1;min-width:200px;">
+        <select id="prod-page-size" onchange="onProdPageSizeChange()" style="width:130px;">
+          <option value="100">100 por vez</option>
+          <option value="500">500 por vez</option>
+          <option value="1000">1000 por vez</option>
+        </select>
         <span class="badge badge-gray" id="prod-count-badge">0</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="prodPaginaAnterior()">⬅️ Anterior</button>
+        <span style="font-size:12px;color:var(--muted);" id="prod-page-info">Página 1</span>
+        <button class="btn btn-ghost btn-sm" onclick="prodProximaPagina()">Próxima ➡️</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -1093,6 +1126,15 @@ tbody tr:hover td { background: #1e2336; }
       </div>
       <div class="field"><label>Nome do Produto *</label><input type="text" id="edit-prod-nome" placeholder="Descrição do produto"></div>
       <div class="field"><label>Peso (kg)</label><input type="number" id="edit-prod-peso" placeholder="0.000" step="0.001"></div>
+      <div class="field">
+        <label>Clientes Vinculados</label>
+        <div class="autocomplete-wrap">
+          <input type="text" id="edit-prod-cli-input" placeholder="🔍 Buscar cliente para vincular..."
+            autocomplete="off" oninput="acClienteVinculoEdicao(this.value)" onfocus="acClienteVinculoEdicao('')" onblur="setTimeout(()=>closeAc('ac-cli-vinc-edit'),200)">
+          <div class="autocomplete-list" id="ac-cli-vinc-edit"></div>
+        </div>
+        <div id="edit-prod-cli-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+      </div>
       <div class="form-row form-row-3">
         <div class="field"><label>Preço A</label><input type="number" id="edit-prod-preco-a" placeholder="0,00" step="0.01"></div>
         <div class="field"><label>Preço B</label><input type="number" id="edit-prod-preco-b" placeholder="0,00" step="0.01"></div>
@@ -1306,7 +1348,17 @@ const SUPABASE_URL = "https://ptlchhomvugwkkcygmqi.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0bGNoaG9tdnVnd2trY3lnbXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjgyMTksImV4cCI6MjA5NzIwNDIxOX0.zfBQ0dXUSjp6-g29X3R3wUDh36B_G_DfXY0l3ydXd9Y";
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let APP_STATE = { clientes: [], produtos: [], pedidos: [], sacola: [], representantes: [], comissoes: [], sacolaEdicao: [], pedidoEdicaoId: null };
+let APP_STATE = { 
+  clientes: [], produtos: [], pedidos: [], sacola: [], representantes: [], comissoes: [],
+  sacolaEdicao: [], pedidoEdicaoId: null, clienteProdutos: [], produtosClienteAtual: [],
+  mostrarTodosProdutos: false, produtosVinculadosTemp: [], produtoClientesVinculadosTemp: [],
+  produtoClientesVinculadosEditTemp: [],
+  // ── NOVO ──
+  produtosPage: 1,
+  produtosPageSize: 100,
+  produtosTotal: 0,
+  produtosSearchServer: ''  // texto de busca atualmente aplicado no servidor
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   if (checarSessao()) {
@@ -1456,15 +1508,19 @@ async function carregarTodosOsDados() {
   } catch(e) { console.error(e); }
 
   try {
-    const resProd = await _supabase.from('produtos').select('*').order('nome');
-    if (!resProd.error) APP_STATE.produtos = resProd.data || [];
-    else console.error("Produtos:", resProd.error.message);
+    await carregarProdutosPaginado(1, APP_STATE.produtosPageSize);
   } catch(e) { console.error(e); }
 
   try {
     const resRep = await _supabase.from('representantes').select('*').order('nome');
     if (!resRep.error) APP_STATE.representantes = resRep.data || [];
     else console.error("Representantes:", resRep.error.message);
+  } catch(e) { console.error(e); }
+
+  try {
+    const resCP = await _supabase.from('cliente_produtos').select('*');
+    if (!resCP.error) APP_STATE.clienteProdutos = resCP.data || [];
+    else console.error("Cliente-Produtos:", resCP.error.message);
   } catch(e) { console.error(e); }
 
   try {
@@ -1481,6 +1537,126 @@ async function carregarTodosOsDados() {
 
   atualizarBadgesLaterais();
   preencherNumeroPedido();
+}
+
+async function carregarProdutosPaginado(page = 1, pageSize = 100, termoBusca = '') {
+  const from = (page - 1) * pageSize;
+  const to   = from + pageSize - 1;
+
+  let query = _supabase.from('produtos').select('*', { count: 'exact' }).order('nome');
+
+  if (termoBusca && termoBusca.trim()) {
+    query = query.or(`nome.ilike.%${termoBusca}%,codigo.ilike.%${termoBusca}%`);
+  }
+
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+  if (error) { console.error("Produtos:", error.message); return; }
+
+  APP_STATE.produtos = data || [];
+  APP_STATE.produtosTotal = count || 0;
+  APP_STATE.produtosPage = page;
+  APP_STATE.produtosPageSize = pageSize;
+  APP_STATE.produtosSearchServer = termoBusca;
+}
+
+function getProdutosVinculados(clienteId) {
+  const ids = APP_STATE.clienteProdutos.filter(cp => cp.cliente_id == clienteId).map(cp => cp.produto_id);
+  return APP_STATE.produtos.filter(p => ids.includes(p.id));
+}
+
+function getClientesVinculados(produtoId) {
+  const ids = APP_STATE.clienteProdutos.filter(cp => cp.produto_id == produtoId).map(cp => cp.cliente_id);
+  return APP_STATE.clientes.filter(c => ids.includes(c.id));
+}
+
+// ── Vínculo de clientes (form NOVO produto) ──
+function acClienteVinculo(val) {
+  const list = document.getElementById('ac-cli-vinc');
+  if (!list) return;
+  const token = String(val||'').toLowerCase().trim();
+  const jaVinculados = APP_STATE.produtoClientesVinculadosTemp.map(c => c.id);
+  const matches = APP_STATE.clientes.filter(c =>
+    !jaVinculados.includes(c.id) &&
+    (!token || String(c.nome||'').toLowerCase().includes(token) || String(c.fantasia||'').toLowerCase().includes(token))
+  );
+  list.innerHTML = matches.length === 0
+    ? '<div class="ac-empty">Nenhum cliente encontrado</div>'
+    : matches.map(c => `<div class="ac-item" onmousedown="adicionarClienteVinculo('${c.id}')">
+          <span class="ac-item-name">${c.nome}</span>
+          <span class="ac-item-code">${c.fantasia||''}</span>
+        </div>`).join('');
+  list.classList.add('open');
+}
+function adicionarClienteVinculo(clienteId) {
+  const c = APP_STATE.clientes.find(x => x.id == clienteId);
+  if (!c) return;
+  APP_STATE.produtoClientesVinculadosTemp.push(c);
+  document.getElementById('prod-cli-input').value = '';
+  closeAc('ac-cli-vinc');
+  renderClientesVinculadosProduto();
+}
+function removerClienteVinculo(clienteId) {
+  APP_STATE.produtoClientesVinculadosTemp = APP_STATE.produtoClientesVinculadosTemp.filter(c => c.id != clienteId);
+  renderClientesVinculadosProduto();
+}
+function renderClientesVinculadosProduto() {
+  const wrap = document.getElementById('prod-cli-lista');
+  if (!wrap) return;
+  if (!APP_STATE.produtoClientesVinculadosTemp.length) {
+    wrap.innerHTML = `<span style="font-size:12px;color:var(--muted);">Nenhum cliente vinculado ainda.</span>`;
+    return;
+  }
+  wrap.innerHTML = APP_STATE.produtoClientesVinculadosTemp.map(c => `
+    <span class="badge badge-blue" style="display:flex;align-items:center;gap:6px;padding:5px 10px;">
+      ${c.nome}
+      <button onclick="removerClienteVinculo('${c.id}')" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:700;">✕</button>
+    </span>`).join('');
+}
+
+// ── Vínculo de clientes (página EDITAR produto) ──
+function acClienteVinculoEdicao(val) {
+  const list = document.getElementById('ac-cli-vinc-edit');
+  if (!list) return;
+  const token = String(val||'').toLowerCase().trim();
+  const jaVinculados = APP_STATE.produtoClientesVinculadosEditTemp.map(c => c.id);
+  const matches = APP_STATE.clientes.filter(c =>
+    !jaVinculados.includes(c.id) &&
+    (!token || String(c.nome||'').toLowerCase().includes(token) || String(c.fantasia||'').toLowerCase().includes(token))
+  );
+  list.innerHTML = matches.length === 0
+    ? '<div class="ac-empty">Nenhum cliente encontrado</div>'
+    : matches.map(c => `<div class="ac-item" onmousedown="adicionarClienteVinculoEdicao('${c.id}')">
+          <span class="ac-item-name">${c.nome}</span>
+          <span class="ac-item-code">${c.fantasia||''}</span>
+        </div>`).join('');
+  list.classList.add('open');
+}
+function adicionarClienteVinculoEdicao(clienteId) {
+  const c = APP_STATE.clientes.find(x => x.id == clienteId);
+  if (!c) return;
+  APP_STATE.produtoClientesVinculadosEditTemp.push(c);
+  document.getElementById('edit-prod-cli-input').value = '';
+  closeAc('ac-cli-vinc-edit');
+  renderClientesVinculadosProdutoEdicao();
+}
+function removerClienteVinculoEdicao(clienteId) {
+  APP_STATE.produtoClientesVinculadosEditTemp = APP_STATE.produtoClientesVinculadosEditTemp.filter(c => c.id != clienteId);
+  renderClientesVinculadosProdutoEdicao();
+}
+function renderClientesVinculadosProdutoEdicao() {
+  const wrap = document.getElementById('edit-prod-cli-lista');
+  if (!wrap) return;
+  if (!APP_STATE.produtoClientesVinculadosEditTemp.length) {
+    wrap.innerHTML = `<span style="font-size:12px;color:var(--muted);">Nenhum cliente vinculado ainda.</span>`;
+    return;
+  }
+  wrap.innerHTML = APP_STATE.produtoClientesVinculadosEditTemp.map(c => `
+    <span class="badge badge-blue" style="display:flex;align-items:center;gap:6px;padding:5px 10px;">
+      ${c.nome}
+      <button onclick="removerClienteVinculoEdicao('${c.id}')" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:700;">✕</button>
+    </span>`).join('');
 }
 
 function atualizarBadgesLaterais() {
@@ -1592,7 +1768,7 @@ function renderConferenciaFiscal() {
     let totalB = 0;
     let totalC = 0;
 
-    const colunasAB = ehTipoB ? `<th>Preço A</th><th>Preço B</th><th>Preço C</th>` : '';
+const colunasAB = ehTipoB ? `<th>Preço A</th><th>Preço B</th><th>Preço C</th>` : '';
 
     const linhas = itens.map(i => {
       const prod = i.produtos || {};
@@ -1615,7 +1791,8 @@ if (ehTipoB) {
     <td style="font-family:var(--mono);color:var(--amber);">${fmt(precoB)}</td>
     <td style="font-family:var(--mono);color:var(--purple);">${fmt(precoC)}</td>`;
 }
-      return `
+
+return `
         <tr>
           <td style="font-family:var(--mono);">${prod.codigo || '—'}</td>
           <td><strong>${prod.nome || 'Produto removido'}</strong></td>
@@ -1624,6 +1801,7 @@ if (ehTipoB) {
           <td style="font-family:var(--mono);">${prod.unidade || 'UN'}</td>
           <td style="font-family:var(--mono);">${i.quantidade}</td>
           ${celulasAB}
+          <td style="font-family:var(--mono);font-weight:700;">${fmt(valorTotal)}</td>          ${celulasAB}
           <td style="font-family:var(--mono);font-weight:700;">${fmt(valorTotal)}</td>          <td style="font-family:var(--mono);">${icmsPerc ? Number(icmsPerc).toFixed(2).replace('.',',')+'%' : '—'}</td>
           <td style="font-family:var(--mono);color:var(--green);font-weight:700;">${fmt(icmsValor)}</td>
         </tr>`;
@@ -1657,8 +1835,8 @@ if (ehTipoB) {
                 <th>Vlr. ICMS</th>
               </tr>
             </thead>
-            <tbody>${linhas || '<tr><td colspan="11"><em>Sem itens</em></td></tr>'}</tbody>
-          </table>
+            <tbody>${linhas || '<tr><td colspan="11"><em>Sem itens</em></td></tr>'}</tbody>       
+           </table>
         </div>
         <div class="divider"></div>
         <div style="display:flex;justify-content:flex-end;gap:24px;font-family:var(--mono);font-size:13px;flex-wrap:wrap;">
@@ -1690,27 +1868,25 @@ function preencherNumeroPedido() {
 // ── CLIENTES ──
 async function salvarCliente() {
   const id = document.getElementById('cli-id').value;
-  const payload = {
-    nome:     document.getElementById('cli-nome').value.trim(),
-    fantasia: document.getElementById('cli-fantasia').value.trim(),
-    doc:      document.getElementById('cli-doc').value.trim(),
-    tel:      document.getElementById('cli-tel').value.trim(),
-    email:    document.getElementById('cli-email').value.trim(),
-    endereco: document.getElementById('cli-end').value.trim(),
-    cidade:   document.getElementById('cli-cidade').value.trim(),
-    uf:       document.getElementById('cli-uf').value.trim().toUpperCase(),
-    cep:      document.getElementById('cli-cep').value.trim(),
-    obs:      document.getElementById('cli-obs').value.trim()
-  };
+  const payload = { /* ... */ };
   if (!payload.nome) return showToast("O campo Nome é obrigatório.", "warn");
   try {
     const result = id
-      ? await _supabase.from('clientes').update(payload).eq('id', id)
-      : await _supabase.from('clientes').insert([payload]);
+      ? await _supabase.from('clientes').update(payload).eq('id', id).select()
+      : await _supabase.from('clientes').insert([payload]).select();
     if (result.error) throw result.error;
+
+    // Atualiza só o array local, sem recarregar tudo
+    const salvo = result.data[0];
+    if (id) {
+      const idx = APP_STATE.clientes.findIndex(c => c.id == id);
+      if (idx > -1) APP_STATE.clientes[idx] = salvo;
+    } else {
+      APP_STATE.clientes.push(salvo);
+    }
+
     showToast(id ? "Cliente atualizado!" : "Cliente cadastrado!");
     limparCliente();
-    await carregarTodosOsDados();
     renderClientes();
   } catch(err) { showToast("Erro: " + err.message, "err"); }
 }
@@ -1768,6 +1944,9 @@ async function editarCliente(id) {
   document.getElementById('edit-cli-tipo').value = c.tipo || '';
   popularSelectRepresentantes('edit-cli-representante', c.representante_id);
 
+  APP_STATE.produtosVinculadosTemp = getProdutosVinculados(c.id);
+  renderProdutosVinculados();
+
   document.querySelectorAll('.page').forEach(p => { p.style.removeProperty('display'); p.classList.remove('active'); });
   document.getElementById('page-editar-cliente').classList.add('active');
   document.getElementById('topbar-title').innerText = 'Editar Cliente';
@@ -1801,6 +1980,13 @@ async function salvarEdicaoCliente() {
   try {
     const {error} = await _supabase.from('clientes').update(payload).eq('id', id);
     if (error) throw error;
+
+    await _supabase.from('cliente_produtos').delete().eq('cliente_id', id);
+    if (APP_STATE.produtosVinculadosTemp.length) {
+      const payloadVinc = APP_STATE.produtosVinculadosTemp.map(p => ({ cliente_id: id, produto_id: p.id }));
+      await _supabase.from('cliente_produtos').insert(payloadVinc);
+    }
+
     showToast("Alterações salvas!");
     await carregarTodosOsDados();
     renderClientes();
@@ -1846,30 +2032,65 @@ async function salvarProduto() {
   if (!payload.codigo || !payload.nome) return showToast("Código e Nome são obrigatórios.", "warn");
   try {
     const q = id
-      ? await _supabase.from('produtos').update(payload).eq('id', id)
-      : await _supabase.from('produtos').insert([payload]);
+      ? await _supabase.from('produtos').update(payload).eq('id', id).select()
+      : await _supabase.from('produtos').insert([payload]).select();
     if (q.error) throw q.error;
+
+    const produtoId = q.data[0].id;
+    await _supabase.from('cliente_produtos').delete().eq('produto_id', produtoId);
+    if (APP_STATE.produtoClientesVinculadosTemp.length) {
+      const payloadVinc = APP_STATE.produtoClientesVinculadosTemp.map(c => ({ cliente_id: c.id, produto_id: produtoId }));
+      await _supabase.from('cliente_produtos').insert(payloadVinc);
+    }
+
     showToast("Produto salvo!");
     limparProduto();
-    await carregarTodosOsDados(); renderProdutos();
+    await carregarProdutosPaginado(APP_STATE.produtosPage, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+    renderProdutos();
   } catch(err) { showToast("Erro: " + err.message, "err"); }
+}
+let _prodSearchTimeout = null;
+function onProdSearchInput() {
+  clearTimeout(_prodSearchTimeout);
+  _prodSearchTimeout = setTimeout(async () => {
+    const termo = document.getElementById('prod-search').value.trim();
+    await carregarProdutosPaginado(1, APP_STATE.produtosPageSize, termo);
+    renderProdutos();
+  }, 350);
+}
+
+async function onProdPageSizeChange() {
+  const novoTamanho = parseInt(document.getElementById('prod-page-size').value) || 100;
+  const termo = document.getElementById('prod-search').value.trim();
+  await carregarProdutosPaginado(1, novoTamanho, termo);
+  renderProdutos();
+}
+
+async function prodProximaPagina() {
+  const totalPaginas = Math.ceil(APP_STATE.produtosTotal / APP_STATE.produtosPageSize) || 1;
+  if (APP_STATE.produtosPage >= totalPaginas) return;
+  await carregarProdutosPaginado(APP_STATE.produtosPage + 1, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+  renderProdutos();
+}
+
+async function prodPaginaAnterior() {
+  if (APP_STATE.produtosPage <= 1) return;
+  await carregarProdutosPaginado(APP_STATE.produtosPage - 1, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+  renderProdutos();
 }
 
 function renderProdutos() {
-  const search = (document.getElementById('prod-search')?.value || '').toLowerCase().trim();
   const tbody = document.getElementById('prod-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  const filtrados = APP_STATE.produtos.filter(p => {
-    if (!search) return true;
-    return String(p.nome||'').toLowerCase().includes(search)
-        || String(p.codigo||'').toLowerCase().includes(search)
-        || String(p.marca||'').toLowerCase().includes(search);
-  });
+  const filtrados = APP_STATE.produtos;
 
-  document.getElementById('prod-count-badge') && (document.getElementById('prod-count-badge').innerText = filtrados.length);
+  document.getElementById('prod-count-badge') && (document.getElementById('prod-count-badge').innerText = `${filtrados.length} de ${APP_STATE.produtosTotal}`);
   document.getElementById('prod-empty') && (document.getElementById('prod-empty').style.display = filtrados.length === 0 ? 'block' : 'none');
+
+  const totalPaginas = Math.ceil(APP_STATE.produtosTotal / APP_STATE.produtosPageSize) || 1;
+  document.getElementById('prod-page-info') && (document.getElementById('prod-page-info').innerText = `Página ${APP_STATE.produtosPage} de ${totalPaginas}`);
 
   filtrados.forEach(p => {
     const tr = document.createElement('tr');
@@ -1905,6 +2126,9 @@ function editarProduto(id) {
   f('edit-prod-preco-c', p.preco_c);
   f('edit-prod-cst', p.cst); f('edit-prod-icms', p.icms); f('edit-prod-ncm', p.ncm);
 
+  APP_STATE.produtoClientesVinculadosEditTemp = getClientesVinculados(p.id);
+  renderClientesVinculadosProdutoEdicao();
+
   document.querySelectorAll('.page').forEach(pg => { pg.style.removeProperty('display'); pg.classList.remove('active'); });
   document.getElementById('page-editar-produto').classList.add('active');
   document.getElementById('topbar-title').innerText = 'Editar Produto';
@@ -1935,8 +2159,17 @@ async function salvarEdicaoProduto() {
   try {
     const {error} = await _supabase.from('produtos').update(payload).eq('id', id);
     if (error) throw error;
+
+    await _supabase.from('cliente_produtos').delete().eq('produto_id', id);
+    if (APP_STATE.produtoClientesVinculadosEditTemp.length) {
+      const payloadVinc = APP_STATE.produtoClientesVinculadosEditTemp.map(c => ({ cliente_id: c.id, produto_id: id }));
+      await _supabase.from('cliente_produtos').insert(payloadVinc);
+    }
+
     showToast("Produto atualizado!");
-    await carregarTodosOsDados(); renderProdutos(); voltarParaProdutos();
+    await carregarProdutosPaginado(APP_STATE.produtosPage, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+    renderProdutos();
+    voltarParaProdutos();
   } catch(err) { showToast("Erro: " + err.message, "err"); }
 }
 
@@ -1948,6 +2181,8 @@ function limparProduto() {
   document.getElementById('prod-peso').value = '1';
   document.getElementById('prod-form-title').innerText = '➕ Novo Produto';
   document.getElementById('btn-prod-cancel').style.display = 'none';
+  APP_STATE.produtoClientesVinculadosTemp = [];
+  renderClientesVinculadosProduto();
 }
 
 async function deletarProduto(id) {
@@ -1956,7 +2191,8 @@ async function deletarProduto(id) {
     const {error} = await _supabase.from('produtos').delete().eq('id', id);
     if (error) throw error;
     showToast("Produto removido.");
-    await carregarTodosOsDados(); renderProdutos();
+    await carregarProdutosPaginado(APP_STATE.produtosPage, APP_STATE.produtosPageSize, APP_STATE.produtosSearchServer);
+    renderProdutos();
   } catch(err) { showToast("Erro: " + err.message, "err"); }
 }
 
@@ -2208,6 +2444,10 @@ function selectAcCliente_id(id) {
   document.getElementById('fat-cli-end').value    = c.endereco || '';
   document.getElementById('fat-cli-cidade').value = c.cidade ? `${c.cidade} - ${c.uf||''}` : '';
   document.getElementById('fat-cli-fields').style.display = 'grid';
+
+  APP_STATE.produtosClienteAtual = getProdutosVinculados(id);
+  APP_STATE.mostrarTodosProdutos = false;
+
   closeAc('ac-cli');
 }
 
@@ -2216,13 +2456,26 @@ function acProduto(val) {
   const list = document.getElementById('ac-prod');
   if (!list) return;
   const token = String(val||'').toLowerCase().trim();
-  const matches = APP_STATE.produtos.filter(p =>
+  const vinculados = APP_STATE.produtosClienteAtual || [];
+  const usarVinculados = vinculados.length > 0 && !APP_STATE.mostrarTodosProdutos;
+  const base = usarVinculados ? vinculados : APP_STATE.produtos;
+
+  const matches = base.filter(p =>
     !token
     || String(p.nome||'').toLowerCase().includes(token)
     || String(p.codigo||'').toLowerCase().includes(token)
     || String(p.marca||'').toLowerCase().includes(token)
   );
-  list.innerHTML = matches.length === 0
+
+  let html = '';
+  if (usarVinculados) {
+    html += `<div class="ac-item" style="cursor:default;background:var(--surface);" onmousedown="event.preventDefault()">
+      <span style="font-size:11px;color:var(--muted);flex:1;">📌 Produtos deste cliente</span>
+      <span class="ac-item-code" style="cursor:pointer;color:var(--blue);" onmousedown="mostrarTodosProdutosFat()">Ver todos os produtos</span>
+    </div>`;
+  }
+
+  html += matches.length === 0
     ? '<div class="ac-empty">Nenhum produto encontrado</div>'
     : matches.map(p =>
         `<div class="ac-item" onmousedown="selectAcProduto_id('${p.id}')">
@@ -2233,7 +2486,14 @@ function acProduto(val) {
           <span class="ac-item-code">${p.codigo||''}</span>
         </div>`
       ).join('');
+
+  list.innerHTML = html;
   list.classList.add('open');
+}
+
+function mostrarTodosProdutosFat() {
+  APP_STATE.mostrarTodosProdutos = true;
+  acProduto(document.getElementById('fat-prod-input').value);
 }
 
 function selectAcProduto_id(id) {
@@ -2280,6 +2540,56 @@ function onChangeTipoPreco() {
 function closeAc(id) {
   const el = document.getElementById(id);
   if (el) el.classList.remove('open');
+}
+
+function acProdutoVinculo(val) {
+  const list = document.getElementById('ac-prod-vinc');
+  if (!list) return;
+  const token = String(val||'').toLowerCase().trim();
+  const jaVinculados = APP_STATE.produtosVinculadosTemp.map(p => p.id);
+  const matches = APP_STATE.produtos.filter(p =>
+    !jaVinculados.includes(p.id) &&
+    (!token
+      || String(p.nome||'').toLowerCase().includes(token)
+      || String(p.codigo||'').toLowerCase().includes(token))
+  );
+  list.innerHTML = matches.length === 0
+    ? '<div class="ac-empty">Nenhum produto encontrado</div>'
+    : matches.map(p =>
+        `<div class="ac-item" onmousedown="adicionarProdutoVinculo('${p.id}')">
+          <span class="ac-item-name">${p.nome}</span>
+          <span class="ac-item-code">${p.codigo||''}</span>
+        </div>`
+      ).join('');
+  list.classList.add('open');
+}
+
+function adicionarProdutoVinculo(produtoId) {
+  const p = APP_STATE.produtos.find(x => x.id == produtoId);
+  if (!p) return;
+  APP_STATE.produtosVinculadosTemp.push(p);
+  document.getElementById('vinc-prod-input').value = '';
+  closeAc('ac-prod-vinc');
+  renderProdutosVinculados();
+}
+
+function removerProdutoVinculo(produtoId) {
+  APP_STATE.produtosVinculadosTemp = APP_STATE.produtosVinculadosTemp.filter(p => p.id != produtoId);
+  renderProdutosVinculados();
+}
+
+function renderProdutosVinculados() {
+  const wrap = document.getElementById('vinc-prod-lista');
+  if (!wrap) return;
+  if (!APP_STATE.produtosVinculadosTemp.length) {
+    wrap.innerHTML = `<span style="font-size:12px;color:var(--muted);">Nenhum produto vinculado ainda.</span>`;
+    return;
+  }
+  wrap.innerHTML = APP_STATE.produtosVinculadosTemp.map(p => `
+    <span class="badge badge-blue" style="display:flex;align-items:center;gap:6px;padding:5px 10px;">
+      ${p.nome}
+      <button onclick="removerProdutoVinculo('${p.id}')" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:700;">✕</button>
+    </span>`).join('');
 }
 
 // ── SACOLA ──
@@ -2462,6 +2772,8 @@ const {data: pedData, error: pedErr} = await _supabase.from('pedidos').insert([
     document.getElementById('fat-num').value = '';
     document.getElementById('fat-tipo-preco').value = 'A';
     APP_STATE.sacola = [];
+    APP_STATE.produtosClienteAtual = [];
+    APP_STATE.mostrarTodosProdutos = false;
     renderSacola();
 
     await carregarTodosOsDados();
@@ -2544,7 +2856,7 @@ function renderDashboard() {
 
   const s = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
   s('dash-cli',         APP_STATE.clientes.length);
-  s('dash-prod',        APP_STATE.produtos.length);
+  s('dash-prod',        APP_STATE.produtosTotal || APP_STATE.produtos.length);
   s('dash-ped',         pedidosFiltrados.length);
   s('dash-etiq',        pedidosFiltrados.length);
   s('dash-faturamento', fmt(totalFaturado));
@@ -3100,10 +3412,14 @@ function exportarDados() {
       'clientes'
     );
   } else if (paginaAtiva === 'produtos') {
+    const produtosParaExportar = APP_STATE.produtos.map(p => ({
+      ...p,
+      clientes_vinculados: getClientesVinculados(p.id).map(c => c.nome).join(', ')
+    }));
     exportarCSV(
-      APP_STATE.produtos,
-      ['codigo','nome','unidade','peso','preco_a','preco_b','preco_c','cst','icms','ncm'],
-      ['Código','Nome','Unidade','Peso(kg)','Preço A','Preço B','Preço C','CST','ICMS(%)','NCM'],
+      produtosParaExportar,
+      ['codigo','nome','unidade','peso','preco_a','preco_b','preco_c','cst','icms','ncm','clientes_vinculados'],
+      ['Código','Nome','Unidade','Peso(kg)','Preço A','Preço B','Preço C','CST','ICMS(%)','NCM','Clientes Vinculados'],
       'produtos'
     );
   } else {
@@ -3224,47 +3540,57 @@ async function importarClientes(registros) {
 
 async function importarProdutos(registros) {
   const mapaColuna = {
-    'Código':       'codigo',
-    'Nome':         'nome',
-    'Unidade':      'unidade',
-    'Peso(kg)':     'peso',
-    'Preço A':      'preco_a',
-    'Preço B':      'preco_b',
-    'Preço C':      'preco_c',
-    'CST':          'cst',
-    'ICMS(%)':      'icms',
-    'NCM':          'ncm',
-    // compatibilidade
-    'codigo':'codigo','nome':'nome','unidade':'unidade',
-    'peso':'peso','preco_a':'preco_a','preco_b':'preco_b','preco_c':'preco_c',
-    'cst':'cst','icms':'icms','ncm':'ncm'
+    'Código':'codigo','Nome':'nome','Unidade':'unidade','Peso(kg)':'peso',
+    'Preço A':'preco_a','Preço B':'preco_b','Preço C':'preco_c',
+    'CST':'cst','ICMS(%)':'icms','NCM':'ncm',
+    'Clientes Vinculados':'clientes_vinculados',
+    'codigo':'codigo','nome':'nome','unidade':'unidade','peso':'peso',
+    'preco_a':'preco_a','preco_b':'preco_b','preco_c':'preco_c',
+    'cst':'cst','icms':'icms','ncm':'ncm','clientes_vinculados':'clientes_vinculados'
   };
 
-  const payload = registros.map(r => {
+  const registrosProcessados = registros.map(r => {
     const obj = {};
     Object.entries(r).forEach(([k, v]) => {
       const campo = mapaColuna[k];
       if (campo) obj[campo] = v;
     });
-    // converte numéricos
-    if (obj.peso)     obj.peso     = parseFloat(String(obj.peso).replace(',','.'))     || 0;
-    if (obj.preco_a)  obj.preco_a  = parseFloat(String(obj.preco_a).replace(',','.'))  || 0;
-    if (obj.preco_b)  obj.preco_b  = parseFloat(String(obj.preco_b).replace(',','.'))  || 0;
-    if (obj.preco_c)  obj.preco_c  = parseFloat(String(obj.preco_c).replace(',','.'))  || 0;
-    if (obj.icms)     obj.icms     = parseFloat(String(obj.icms).replace(',','.'))     || 0;
+    if (obj.peso)    obj.peso    = parseFloat(String(obj.peso).replace(',','.'))    || 0;
+    if (obj.preco_a) obj.preco_a = parseFloat(String(obj.preco_a).replace(',','.')) || 0;
+    if (obj.preco_b) obj.preco_b = parseFloat(String(obj.preco_b).replace(',','.')) || 0;
+    if (obj.preco_c) obj.preco_c = parseFloat(String(obj.preco_c).replace(',','.')) || 0;
+    if (obj.icms)    obj.icms    = parseFloat(String(obj.icms).replace(',','.'))    || 0;
     return obj;
   }).filter(o => o.codigo && o.nome);
 
-  if (!payload.length) return showToast("Nenhum produto válido encontrado no CSV. Verifique se o CSV tem as colunas 'Código' e 'Nome'.", "warn");
+  if (!registrosProcessados.length) return showToast("Nenhum produto válido encontrado no CSV. Verifique se o CSV tem as colunas 'Código' e 'Nome'.", "warn");
+
+  const payload = registrosProcessados.map(({clientes_vinculados, ...rest}) => rest);
 
   try {
-    const { error } = await _supabase.from('produtos').insert(payload);
+    const { data, error } = await _supabase.from('produtos').insert(payload).select();
     if (error) throw error;
+
+    // Recria vínculos com clientes com base na coluna "Clientes Vinculados" (nomes separados por vírgula)
+    const vinculos = [];
+    data.forEach((produtoInserido, idx) => {
+      const nomesClientes = (registrosProcessados[idx].clientes_vinculados || '')
+        .split(',').map(n => n.trim()).filter(Boolean);
+      nomesClientes.forEach(nome => {
+        const cliente = APP_STATE.clientes.find(c => String(c.nome||'').toLowerCase().trim() === nome.toLowerCase());
+        if (cliente) vinculos.push({ cliente_id: cliente.id, produto_id: produtoInserido.id });
+      });
+    });
+    if (vinculos.length) {
+      await _supabase.from('cliente_produtos').insert(vinculos);
+    }
+
     showToast(`${payload.length} produto(s) importado(s)!`);
     await carregarTodosOsDados();
     renderProdutos();
   } catch(err) { showToast("Erro na importação: " + err.message, "err"); }
 }
+
 
 function showToast(msg, type='success') {
   const c = document.getElementById('toast-container');
