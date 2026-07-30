@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0c0e14">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="https://raw.githubusercontent.com/Kairo0713/components-img/refs/heads/main/logo%20pequena.jpg" type="image/x-icon">
 <title>RK Inova — Gestão de Pedidos</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -431,6 +432,14 @@ tbody tr:hover td { background: #1e2336; }
   #print-zone .etiq-hd  { flex-shrink: 0 !important; }
   #print-zone .etiq-ft  { flex-shrink: 0 !important; }
   #print-zone .etiq-bc  { flex-shrink: 0 !important; margin-top: auto !important; }
+  #print-zone .etiq-aviso {
+    color: #000 !important;
+    background: #b0b0b0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    border-top: 2px solid #000 !important;
+    border-bottom: 2px solid #000 !important;
+  }
 
   #print-zone .etiq-body {
     flex: 1 1 auto !important;
@@ -686,7 +695,56 @@ tbody tr:hover td { background: #1e2336; }
   </div>
 </div>
 
-<!-- ── DASHBOARD ── -->
+<!-- ── EDITAR PEDIDO ── -->
+<div class="page" id="page-editar-pedido">
+  <div class="card" style="max-width:760px;margin:20px auto;">
+    <div class="card-title">✏️ Editar Pedido <span id="edit-ped-num-label" style="color:var(--amber);margin-left:6px;"></span></div>
+    <div class="form-grid">
+      <input type="hidden" id="edit-ped-id">
+      <div class="form-row form-row-2">
+        <div class="field"><label>Cliente</label><input type="text" id="edit-ped-cliente" disabled></div>
+        <div class="field"><label>Transportadora</label><input type="text" id="edit-ped-transp" placeholder="Transportadora"></div>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="edit-ped-obs" rows="2" placeholder="Obs. para a etiqueta..."></textarea></div>
+
+      <div class="divider"></div>
+      <div class="card-title" style="margin-bottom:10px;">📦 Itens do Pedido</div>
+
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:flex-end;">
+        <div class="field" style="flex:1;">
+          <label>Adicionar Produto</label>
+          <div class="autocomplete-wrap">
+            <input type="text" id="edit-ped-prod-input" placeholder="🔍 Buscar produto..."
+              autocomplete="off" oninput="acProdutoEdicao(this.value)" onfocus="acProdutoEdicao('')" onblur="setTimeout(()=>closeAc('ac-prod-edicao'),200)">
+            <div class="autocomplete-list" id="ac-prod-edicao"></div>
+          </div>
+          <input type="hidden" id="edit-ped-prod-id">
+          <input type="hidden" id="edit-ped-prod-unidade">
+        </div>
+        <div class="field" style="width:120px;">
+          <label id="edit-ped-qty-label">Quantidade</label>
+          <input type="number" id="edit-ped-qty" placeholder="0" min="0.001" step="any">
+        </div>
+        <button class="btn btn-ghost" onclick="addItemEdicao()" style="margin-bottom:1px;">＋ Add</button>
+      </div>
+
+      <div id="edit-ped-items-wrap">
+        <div class="empty-state" style="padding:24px;">
+          <div class="empty-icon">🛒</div>
+          <div class="empty-desc">Nenhum item.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="voltarParaHistoricoEdicao()">Anular / Voltar</button>
+        <button class="btn btn-primary" onclick="salvarEdicaoPedido()">💾 Salvar e Gerar Nova Etiqueta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <!-- ── DASHBOARD ── -->
 <div class="page active" id="page-dashboard">
 
@@ -896,9 +954,11 @@ tbody tr:hover td { background: #1e2336; }
           </div>
         </div>
         <div class="field"><label>Nome do Produto *</label><input type="text" id="prod-nome" placeholder="Descrição do produto"></div>
-        <div class="form-row form-row-2">
-          <div class="field"><label>Peso (kg)</label><input type="number" id="prod-peso" placeholder="0.000" step="0.001" value="1"></div>
-          <div class="field"><label>Preço de Venda</label><input type="number" id="prod-preco" placeholder="0,00" step="0.01"></div>
+        <div class="field"><label>Peso (kg)</label><input type="number" id="prod-peso" placeholder="0.000" step="0.001" value="1"></div>
+        <div class="form-row form-row-3">
+          <div class="field"><label>Preço A</label><input type="number" id="prod-preco-a" placeholder="0,00" step="0.01"></div>
+          <div class="field"><label>Preço B</label><input type="number" id="prod-preco-b" placeholder="0,00" step="0.01"></div>
+          <div class="field"><label>Preço C</label><input type="number" id="prod-preco-c" placeholder="0,00" step="0.01"></div>
         </div>
         <div class="form-row form-row-3">
           <div class="field"><label>CST</label><input type="text" id="prod-cst" placeholder="Ex: 000"></div>
@@ -918,7 +978,7 @@ tbody tr:hover td { background: #1e2336; }
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Código</th><th>Nome</th><th>Un.</th><th>Preço Venda</th><th>Peso</th><th>CST</th><th>ICMS</th><th>NCM</th><th></th></tr></thead>
+          <thead><tr><th>Código</th><th>Nome</th><th>Un.</th><th>Preço A</th><th>Preço B</th><th>Preço C</th><th>Peso</th><th>CST</th><th>ICMS</th><th>NCM</th><th></th></tr></thead>
           <tbody id="prod-tbody"></tbody>
         </table>
         <div class="empty-state" id="prod-empty" style="display:none">
@@ -1032,9 +1092,11 @@ tbody tr:hover td { background: #1e2336; }
         </div>
       </div>
       <div class="field"><label>Nome do Produto *</label><input type="text" id="edit-prod-nome" placeholder="Descrição do produto"></div>
-      <div class="form-row form-row-2">
-        <div class="field"><label>Peso (kg)</label><input type="number" id="edit-prod-peso" placeholder="0.000" step="0.001"></div>
-        <div class="field"><label>Preço de Venda</label><input type="number" id="edit-prod-preco" placeholder="0,00" step="0.01"></div>
+      <div class="field"><label>Peso (kg)</label><input type="number" id="edit-prod-peso" placeholder="0.000" step="0.001"></div>
+      <div class="form-row form-row-3">
+        <div class="field"><label>Preço A</label><input type="number" id="edit-prod-preco-a" placeholder="0,00" step="0.01"></div>
+        <div class="field"><label>Preço B</label><input type="number" id="edit-prod-preco-b" placeholder="0,00" step="0.01"></div>
+        <div class="field"><label>Preço C</label><input type="number" id="edit-prod-preco-c" placeholder="0,00" step="0.01"></div>
       </div>
       <div class="form-row form-row-3">
         <div class="field"><label>CST</label><input type="text" id="edit-prod-cst" placeholder="Ex: 000"></div>
@@ -1063,10 +1125,17 @@ tbody tr:hover td { background: #1e2336; }
           <span>🧾 Dados do Pedido</span>
           <button class="btn btn-blue btn-sm" onclick="exportarPDFFaturamento()">📄 Exportar PDF</button>
         </div>        <div class="form-grid">
-          <div class="form-row form-row-3">
+          <div class="form-row form-row-4">
             <div class="field"><label>Nº do Pedido *</label><input type="text" id="fat-num" placeholder="PED-001"></div>
             <div class="field"><label>Data do Pedido</label><input type="date" id="fat-data"></div>
             <div class="field"><label>Transportadora</label><input type="text" id="fat-transp" placeholder="Transportadora"></div>
+            <div class="field"><label>Tipo de Preço</label>
+              <select id="fat-tipo-preco" onchange="onChangeTipoPreco()">
+                <option value="A">Tipo A</option>
+                <option value="B">Tipo B</option>
+                <option value="C">Tipo C</option>
+              </select>
+            </div>
           </div>
           <div class="field">
             <label>Cliente *</label>
@@ -1158,7 +1227,7 @@ tbody tr:hover td { background: #1e2336; }
   <div class="card">
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Itens / Lotes</th><th>Status</th><th>Etiqueta</th><th></th></tr></thead>
+        <thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Tipo</th><th>Itens / Lotes</th><th>Status</th><th>Etiqueta</th><th></th></tr></thead>
         <tbody id="hist-tbody"></tbody>
       </table>
       <div class="empty-state" id="hist-empty" style="display:none;">
@@ -1237,7 +1306,7 @@ const SUPABASE_URL = "https://ptlchhomvugwkkcygmqi.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0bGNoaG9tdnVnd2trY3lnbXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjgyMTksImV4cCI6MjA5NzIwNDIxOX0.zfBQ0dXUSjp6-g29X3R3wUDh36B_G_DfXY0l3ydXd9Y";
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let APP_STATE = { clientes: [], produtos: [], pedidos: [], sacola: [], representantes: [], comissoes: [] };
+let APP_STATE = { clientes: [], produtos: [], pedidos: [], sacola: [], representantes: [], comissoes: [], sacolaEdicao: [], pedidoEdicaoId: null };
 
 document.addEventListener("DOMContentLoaded", () => {
   if (checarSessao()) {
@@ -1516,19 +1585,36 @@ function renderConferenciaFiscal() {
 
   lista.innerHTML = pendentes.map(p => {
     const itens = p.pedido_itens || [];
+    const ehTipoB = p.tipo_preco === 'B';
     let totalPedido = 0;
     let totalIcms = 0;
+    let totalA = 0;
+    let totalB = 0;
+    let totalC = 0;
 
-    // Sequência igual a uma Nota Fiscal: Código → Descrição → NCM → CST → Un. → Qtd → Vlr. Unit. → Vlr. Total → Alíq. ICMS → Vlr. ICMS
+    const colunasAB = ehTipoB ? `<th>Preço A</th><th>Preço B</th><th>Preço C</th>` : '';
+
     const linhas = itens.map(i => {
       const prod = i.produtos || {};
-      const preco = (i.preco_unitario != null) ? i.preco_unitario : (prod.preco || 0);
+      const preco = (i.preco_unitario != null) ? i.preco_unitario : (prod.preco_a || 0);
       const valorTotal = preco * (i.quantidade || 0);
       const icmsPerc = prod.icms || 0;
       const icmsValor = valorTotal * (icmsPerc / 100);
       totalPedido += valorTotal;
       totalIcms += icmsValor;
 
+let celulasAB = '';
+if (ehTipoB) {
+  const precoA = (i.preco_a != null) ? i.preco_a : (prod.preco_a || 0);
+  const precoC = (i.preco_c != null) ? i.preco_c : (prod.preco_c || 0);
+  const precoB = precoA + precoC;
+  totalA += precoA * (i.quantidade || 0);
+  totalC += precoC * (i.quantidade || 0);
+  celulasAB = `
+    <td style="font-family:var(--mono);color:var(--blue);">${fmt(precoA)}</td>
+    <td style="font-family:var(--mono);color:var(--amber);">${fmt(precoB)}</td>
+    <td style="font-family:var(--mono);color:var(--purple);">${fmt(precoC)}</td>`;
+}
       return `
         <tr>
           <td style="font-family:var(--mono);">${prod.codigo || '—'}</td>
@@ -1537,12 +1623,17 @@ function renderConferenciaFiscal() {
           <td style="font-family:var(--mono);">${prod.cst || '—'}</td>
           <td style="font-family:var(--mono);">${prod.unidade || 'UN'}</td>
           <td style="font-family:var(--mono);">${i.quantidade}</td>
-          <td style="font-family:var(--mono);">${fmt(preco)}</td>
-          <td style="font-family:var(--mono);font-weight:700;">${fmt(valorTotal)}</td>
-          <td style="font-family:var(--mono);">${icmsPerc ? Number(icmsPerc).toFixed(2).replace('.',',')+'%' : '—'}</td>
+          ${celulasAB}
+          <td style="font-family:var(--mono);font-weight:700;">${fmt(valorTotal)}</td>          <td style="font-family:var(--mono);">${icmsPerc ? Number(icmsPerc).toFixed(2).replace('.',',')+'%' : '—'}</td>
           <td style="font-family:var(--mono);color:var(--green);font-weight:700;">${fmt(icmsValor)}</td>
         </tr>`;
     }).join('');
+
+    const resumoAB = ehTipoB ? `
+      <span>Total Preço A: <strong style="color:var(--blue);">${fmt(totalA)}</strong></span>
+      <span>Total Preço C: <strong style="color:var(--purple);">${fmt(totalC)}</strong></span>
+      <span>Soma (A+C): <strong style="color:var(--amber);">${fmt(totalA+totalC)}</strong></span>
+    ` : '';
 
     return `
       <div class="card">
@@ -1560,23 +1651,25 @@ function renderConferenciaFiscal() {
                 <th>CST</th>
                 <th>Un.</th>
                 <th>Qtd</th>
-                <th>Vlr. Unit.</th>
+                ${colunasAB}
                 <th>Vlr. Total</th>
                 <th>Alíq. ICMS</th>
                 <th>Vlr. ICMS</th>
               </tr>
             </thead>
-            <tbody>${linhas || '<tr><td colspan="10"><em>Sem itens</em></td></tr>'}</tbody>
+            <tbody>${linhas || '<tr><td colspan="11"><em>Sem itens</em></td></tr>'}</tbody>
           </table>
         </div>
         <div class="divider"></div>
-        <div style="display:flex;justify-content:flex-end;gap:24px;font-family:var(--mono);font-size:13px;">
+        <div style="display:flex;justify-content:flex-end;gap:24px;font-family:var(--mono);font-size:13px;flex-wrap:wrap;">
+          ${resumoAB}
           <span>Total do Pedido: <strong style="color:var(--amber);">${fmt(totalPedido)}</strong></span>
           <span>Total ICMS: <strong style="color:var(--green);">${fmt(totalIcms)}</strong></span>
         </div>
       </div>`;
   }).join('');
 }
+
 // ── NUMERAÇÃO AUTOMÁTICA ──
 function gerarNumeroPedido() {
   let maior = 0;
@@ -1743,7 +1836,9 @@ async function salvarProduto() {
     unidade:  document.getElementById('prod-unidade').value,
     nome:     document.getElementById('prod-nome').value.trim(),
     peso:     parseFloat(document.getElementById('prod-peso').value) || 0,
-    preco:    parseFloat(document.getElementById('prod-preco').value) || 0,
+    preco_a:  parseFloat(document.getElementById('prod-preco-a').value) || 0,
+    preco_b:  parseFloat(document.getElementById('prod-preco-b').value) || 0,
+    preco_c:  parseFloat(document.getElementById('prod-preco-c').value) || 0,
     cst:      document.getElementById('prod-cst').value.trim(),
     icms:     parseFloat(document.getElementById('prod-icms').value) || 0,
     ncm:      document.getElementById('prod-ncm').value.trim()
@@ -1782,7 +1877,9 @@ function renderProdutos() {
       <td><span class="badge badge-gray" style="font-family:var(--mono)">${p.codigo||'—'}</span></td>
       <td><strong>${p.nome||'Sem Nome'}</strong></td>
       <td>${p.unidade||'—'}</td>
-      <td style="font-family:var(--mono)">${p.preco?'R$ '+Number(p.preco).toFixed(2).replace('.',','):'—'}</td>
+      <td style="font-family:var(--mono)">${p.preco_a?'R$ '+Number(p.preco_a).toFixed(2).replace('.',','):'—'}</td>
+      <td style="font-family:var(--mono)">${p.preco_b?'R$ '+Number(p.preco_b).toFixed(2).replace('.',','):'—'}</td>
+      <td style="font-family:var(--mono)">${p.preco_c?'R$ '+Number(p.preco_c).toFixed(2).replace('.',','):'—'}</td>
       <td style="font-family:var(--mono)">${p.peso?Number(p.peso).toFixed(3)+' kg':'—'}</td>
       <td style="font-family:var(--mono)">${p.cst||'—'}</td>
       <td style="font-family:var(--mono)">${p.icms?Number(p.icms).toFixed(2).replace('.',',')+'%':'—'}</td>
@@ -1803,7 +1900,9 @@ function editarProduto(id) {
   document.getElementById('edit-prod-unidade').value = p.unidade || 'UN';
   f('edit-prod-nome', p.nome);
   f('edit-prod-peso', p.peso);
-  f('edit-prod-preco', p.preco);
+  f('edit-prod-preco-a', p.preco_a);
+  f('edit-prod-preco-b', p.preco_b);
+  f('edit-prod-preco-c', p.preco_c);
   f('edit-prod-cst', p.cst); f('edit-prod-icms', p.icms); f('edit-prod-ncm', p.ncm);
 
   document.querySelectorAll('.page').forEach(pg => { pg.style.removeProperty('display'); pg.classList.remove('active'); });
@@ -1825,7 +1924,9 @@ async function salvarEdicaoProduto() {
     unidade:  document.getElementById('edit-prod-unidade').value,
     nome:     document.getElementById('edit-prod-nome').value.trim(),
     peso:     parseFloat(document.getElementById('edit-prod-peso').value)  || 0,
-    preco:    parseFloat(document.getElementById('edit-prod-preco').value) || 0,
+    preco_a:  parseFloat(document.getElementById('edit-prod-preco-a').value) || 0,
+    preco_b:  parseFloat(document.getElementById('edit-prod-preco-b').value) || 0,
+    preco_c:  parseFloat(document.getElementById('edit-prod-preco-c').value) || 0,
     cst:      document.getElementById('edit-prod-cst').value.trim(),
     icms:     parseFloat(document.getElementById('edit-prod-icms').value) || 0,
     ncm:      document.getElementById('edit-prod-ncm').value.trim()
@@ -2152,9 +2253,28 @@ function selectAcProduto_id(id) {
   closeAc('ac-prod');
 }
 
-function getPrecoCadastro(produtoId) {
+function getPrecoCadastro(produtoId, tipoPreco) {
   const p = APP_STATE.produtos.find(x => x.id == produtoId);
-  return p?.preco || 0;
+  if (!p) return 0;
+  const tipo = (tipoPreco || 'A').toUpperCase();
+  if (tipo === 'B') return (p.preco_a || 0) + (p.preco_c || 0);
+  if (tipo === 'C') return p.preco_c || 0;
+  return p.preco_a || 0;
+}
+
+function getTipoPrecoSelecionado() {
+  return document.getElementById('fat-tipo-preco')?.value || 'A';
+}
+
+function onChangeTipoPreco() {
+  const tipoPreco = getTipoPrecoSelecionado();
+  APP_STATE.sacola.forEach(item => {
+    const produto = APP_STATE.produtos.find(p => p.id == item.produto_id);
+    item.precoA = produto?.preco_a || 0;
+    item.precoC = produto?.preco_c || 0;
+    item.preco  = getPrecoCadastro(item.produto_id, tipoPreco);
+  });
+  renderSacola();
 }
 
 function closeAc(id) {
@@ -2174,12 +2294,20 @@ function addItem() {
   const produto = APP_STATE.produtos.find(p => p.id == prodId);
   if (!produto) return;
 
+  const tipoPreco = getTipoPrecoSelecionado();
+  const precoInicial = getPrecoCadastro(prodId, tipoPreco);
+
   const existente = APP_STATE.sacola.find(i => i.produto_id == prodId);
   if (existente) {
     existente.quantidade += qtd;
     existente.unidade = unidade;
   } else {
-    APP_STATE.sacola.push({ produto_id: prodId, nome: produto.nome, codigo: produto.codigo, unidade, quantidade: qtd, preco: produto.preco || 0 });
+    APP_STATE.sacola.push({
+      produto_id: prodId, nome: produto.nome, codigo: produto.codigo, unidade,
+      quantidade: qtd, preco: precoInicial,
+      precoA: produto.preco_a || 0,
+      precoC: produto.preco_c || 0
+    });
   }
 
   // Limpa os campos de produto e quantidade
@@ -2201,12 +2329,49 @@ function renderSacola() {
     wrap.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="empty-icon">🛒</div><div class="empty-desc">Adicione produtos ao pedido acima.</div></div>`;
     return;
   }
-  let html = `<div class="items-header" style="grid-template-columns:1fr 110px 110px 38px;"><span>Item / SKU</span><span style="text-align:right">Qtd / Un.</span><span style="text-align:right">Preço Unit.</span><span></span></div>`;
+  const tipoPreco = getTipoPrecoSelecionado();
+  const labelPreco = tipoPreco === 'B' ? 'Preço A + C' : 'Preço Unit.';
+  let html = `<div class="items-header" style="grid-template-columns:1fr 110px 130px 38px;"><span>Item / SKU</span><span style="text-align:right">Qtd / Un.</span><span style="text-align:right">${labelPreco}</span><span></span></div>`;
+
+  let totalPedido = 0;
+
   APP_STATE.sacola.forEach((item, idx) => {
-    const precoCadastro = getPrecoCadastro(item.produto_id);
+    totalPedido += (item.preco || 0) * (item.quantidade || 0);
+
+    const precoCadastro = getPrecoCadastro(item.produto_id, tipoPreco);
     const precoDiferente = Number(item.preco) !== Number(precoCadastro);
+
+    let colunaPreco;
+    if (tipoPreco === 'B') {
+      colunaPreco = `
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+            <span style="font-size:10px;color:var(--muted);">A</span>
+            <input type="number" value="${Number(item.precoA||0).toFixed(2)}" min="0" step="0.01"
+              style="width:70px;text-align:right;" onchange="updateSacolaPrecoAB(${idx}, 'A', this.value)">
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+            <span style="font-size:10px;color:var(--muted);">C</span>
+            <input type="number" value="${Number(item.precoC||0).toFixed(2)}" min="0" step="0.01"
+              style="width:70px;text-align:right;" onchange="updateSacolaPrecoAB(${idx}, 'C', this.value)">
+          </div>
+          <div style="font-size:10px;font-family:var(--mono);text-align:right;color:var(--amber);">
+            = R$ ${Number(item.preco).toFixed(2).replace('.',',')}
+          </div>
+        </div>`;
+    } else {
+      colunaPreco = `
+        <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+          <span style="font-size:11px;color:var(--muted);">R$</span>
+          <input type="number" value="${Number(item.preco).toFixed(2)}" min="0" step="0.01"
+            style="width:70px;text-align:right;${precoDiferente?'border-color:var(--amber);color:var(--amber);':''}"
+            title="${precoDiferente?`Preço de cadastro: R$ ${Number(precoCadastro).toFixed(2).replace('.',',')}`:''}"
+            onchange="updateSacolaPreco(${idx}, this.value)">
+        </div>`;
+    }
+
     html += `
-      <div class="item-row" style="grid-template-columns:1fr 110px 110px 38px;">
+      <div class="item-row" style="grid-template-columns:1fr 110px 130px 38px;align-items:flex-start;">
         <div>
           <div class="item-name">${item.nome}</div>
           <div class="item-code">${item.codigo}</div>
@@ -2216,25 +2381,34 @@ function renderSacola() {
             style="width:60px;text-align:right;" onchange="updateSacolaQty(${idx}, this.value)">
           <span style="font-size:11px;color:var(--muted);font-family:var(--mono);min-width:24px;">${item.unidade}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
-          <span style="font-size:11px;color:var(--muted);">R$</span>
-          <input type="number" value="${Number(item.preco).toFixed(2)}" min="0" step="0.01"
-            style="width:70px;text-align:right;${precoDiferente?'border-color:var(--amber);color:var(--amber);':''}"
-            title="${precoDiferente?`Preço de cadastro: R$ ${Number(precoCadastro).toFixed(2).replace('.',',')}`:''}"
-            onchange="updateSacolaPreco(${idx}, this.value)">
-        </div>
+        ${colunaPreco}
         <button class="btn btn-danger btn-xs btn-icon" onclick="removeSacolaItem(${idx})">✕</button>
       </div>`;
   });
+
+  html += `
+    <div style="display:flex;justify-content:flex-end;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-family:var(--mono);font-size:14px;">
+      <span>Total do Pedido: <strong style="color:var(--amber);">R$ ${totalPedido.toFixed(2).replace('.',',')}</strong></span>
+    </div>`;
+
   wrap.innerHTML = html;
 }
 
 function updateSacolaQty(idx, val) {
   APP_STATE.sacola[idx].quantidade = parseFloat(val) || 0;
+  renderSacola();
 }
 
 function updateSacolaPreco(idx, val) {
   APP_STATE.sacola[idx].preco = parseFloat(val) || 0;
+  renderSacola();
+}
+
+function updateSacolaPrecoAB(idx, tipo, val) {
+  const item = APP_STATE.sacola[idx];
+  const v = parseFloat(val) || 0;
+  if (tipo === 'A') item.precoA = v; else item.precoC = v;
+  item.preco = (item.precoA || 0) + (item.precoC || 0);
   renderSacola();
 }
 
@@ -2258,12 +2432,20 @@ async function gerarPedido() {
     const sessao = JSON.parse(localStorage.getItem('rk_session') || '{}');
 const {data: pedData, error: pedErr} = await _supabase.from('pedidos').insert([
       { numero_pedido: num, data_pedido: data, transportadora: transp, cliente_id: cliId, observacoes: obs,
+        tipo_preco: getTipoPrecoSelecionado(),
         faturado_por: sessao.nome || sessao.usuario || 'Desconhecido' }
     ]).select();
     if (pedErr) throw pedErr;
 
     const novoPedido = pedData[0];
-    const itens = APP_STATE.sacola.map(i => ({ pedido_id: novoPedido.id, produto_id: i.produto_id, quantidade: i.quantidade, preco_unitario: i.preco }));
+    const itens = APP_STATE.sacola.map(i => ({
+      pedido_id: novoPedido.id,
+      produto_id: i.produto_id,
+      quantidade: i.quantidade,
+      preco_unitario: i.preco,
+      preco_a: i.precoA ?? null,
+      preco_c: i.precoC ?? null
+    }));
     const {error: itensErr} = await _supabase.from('pedido_itens').insert(itens);
     if (itensErr) throw itensErr;
 
@@ -2278,6 +2460,7 @@ const {data: pedData, error: pedErr} = await _supabase.from('pedidos').insert([
     document.getElementById('fat-obs').value       = '';
     document.getElementById('fat-cli-fields').style.display = 'none';
     document.getElementById('fat-num').value = '';
+    document.getElementById('fat-tipo-preco').value = 'A';
     APP_STATE.sacola = [];
     renderSacola();
 
@@ -2352,7 +2535,7 @@ function renderDashboard() {
   let totalFaturado = 0;
   pedidosFiltrados.forEach(p => {
     (p.pedido_itens || []).forEach(i => {
-      const preco = (i.preco_unitario != null) ? i.preco_unitario : (i.produtos?.preco || 0);
+      const preco = (i.preco_unitario != null) ? i.preco_unitario : (i.produtos?.preco_a || 0);
       totalFaturado += preco * (i.quantidade || 0);
     });
   });
@@ -2467,6 +2650,7 @@ function renderHistorico() {
       <td><strong>#${p.numero_pedido}</strong></td>
       <td>${new Date(p.data_pedido).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
       <td>${cliNome}</td>
+      <td><span class="badge badge-blue">Tipo ${p.tipo_preco || 'A'}</span></td>
       <td>
   <div style="display:flex;flex-direction:column;gap:4px;">
     ${p.pedido_itens?.map(i => {
@@ -2524,7 +2708,10 @@ return `<div style="display:flex;flex-direction:column;gap:3px;padding:4px 0;bor
     </div>` : ''}
 </td>
       <td><button class="btn btn-ghost btn-xs" onclick="visualizarEtiquetaDirect('${p.id}')">🏷️ Ver</button></td>
-      <td><button class="btn btn-danger btn-xs btn-icon" onclick="deletarPedido('${p.id}')">🗑️</button></td>`;
+      <td class="td-actions">
+        <button class="btn btn-blue btn-xs" onclick="editarPedido('${p.id}')">✏️ Editar</button>
+        <button class="btn btn-danger btn-xs btn-icon" onclick="deletarPedido('${p.id}')">🗑️</button>
+      </td>`;
     tbody.appendChild(tr);
   });
 }
@@ -2555,6 +2742,205 @@ async function deletarPedido(id) {
     showToast("Pedido deletado.");
     await carregarTodosOsDados(); renderHistorico();
   } catch(err) { showToast("Erro: "+err.message,"err"); }
+}
+
+// ── EDITAR PEDIDO ──
+function editarPedido(id) {
+  const p = APP_STATE.pedidos.find(x => x.id == id);
+  if (!p) return showToast("Pedido não encontrado.", "err");
+
+  APP_STATE.pedidoEdicaoId = id;
+  APP_STATE.sacolaEdicao = (p.pedido_itens || []).map(i => ({
+    item_id: i.id,
+    produto_id: i.produto_id,
+    nome: i.produtos?.nome || 'Produto removido',
+    codigo: i.produtos?.codigo || '',
+    unidade: i.produtos?.unidade || 'UN',
+    quantidade: i.quantidade,
+    preco: (i.preco_unitario != null) ? i.preco_unitario : (i.produtos?.preco_a || 0)
+  }));
+
+  document.getElementById('edit-ped-id').value = id;
+  document.getElementById('edit-ped-num-label').innerText = `#${p.numero_pedido}`;
+  document.getElementById('edit-ped-cliente').value = p.clientes?.nome || '—';
+  document.getElementById('edit-ped-transp').value = p.transportadora || '';
+  document.getElementById('edit-ped-obs').value = p.observacoes || '';
+
+  renderItensEdicao();
+
+  document.querySelectorAll('.page').forEach(pg => { pg.style.removeProperty('display'); pg.classList.remove('active'); });
+  document.getElementById('page-editar-pedido').classList.add('active');
+  document.getElementById('topbar-title').innerText = 'Editar Pedido';
+  document.getElementById('topbar-icon').innerText  = '✏️';
+}
+
+function voltarParaHistoricoEdicao() {
+  APP_STATE.sacolaEdicao = [];
+  APP_STATE.pedidoEdicaoId = null;
+  const pg = document.getElementById('page-editar-pedido');
+  if (pg) { pg.style.removeProperty('display'); pg.classList.remove('active'); }
+  navToBtn('historico');
+}
+
+function acProdutoEdicao(val) {
+  const list = document.getElementById('ac-prod-edicao');
+  if (!list) return;
+  const token = String(val||'').toLowerCase().trim();
+  const matches = APP_STATE.produtos.filter(p =>
+    !token
+    || String(p.nome||'').toLowerCase().includes(token)
+    || String(p.codigo||'').toLowerCase().includes(token)
+  );
+  list.innerHTML = matches.length === 0
+    ? '<div class="ac-empty">Nenhum produto encontrado</div>'
+    : matches.map(p =>
+        `<div class="ac-item" onmousedown="selectAcProdutoEdicao_id('${p.id}')">
+          <div style="display:flex;flex-direction:column;gap:1px;flex:1;">
+            <span class="ac-item-name">${p.nome}</span>
+          </div>
+          <span class="ac-item-code">${p.codigo||''}</span>
+        </div>`
+      ).join('');
+  list.classList.add('open');
+}
+
+function selectAcProdutoEdicao_id(id) {
+  const p = APP_STATE.produtos.find(x => x.id == id);
+  if (!p) return;
+  document.getElementById('edit-ped-prod-input').value   = `[${p.codigo}] ${p.nome}`;
+  document.getElementById('edit-ped-prod-id').value      = p.id;
+  document.getElementById('edit-ped-prod-unidade').value = p.unidade || 'UN';
+  const label = document.getElementById('edit-ped-qty-label');
+  if (label) label.innerText = `Quantidade (${p.unidade || 'UN'})`;
+  closeAc('ac-prod-edicao');
+}
+
+function addItemEdicao() {
+  const prodId  = document.getElementById('edit-ped-prod-id').value;
+  const unidade = document.getElementById('edit-ped-prod-unidade').value || 'UN';
+  const qtd     = parseFloat(document.getElementById('edit-ped-qty').value);
+
+  if (!prodId) return showToast("Selecione um produto válido da lista.", "warn");
+  if (!qtd || qtd <= 0) return showToast(`Informe a quantidade em ${unidade}.`, "warn");
+
+  const produto = APP_STATE.produtos.find(p => p.id == prodId);
+  if (!produto) return;
+
+  const tipoPreco = document.getElementById('fat-tipo-preco')?.value || 'A';
+  const precoInicial = getPrecoCadastro(prodId, tipoPreco);
+
+  const existente = APP_STATE.sacolaEdicao.find(i => i.produto_id == prodId);
+  if (existente) {
+    existente.quantidade += qtd;
+  } else {
+    APP_STATE.sacolaEdicao.push({ item_id: null, produto_id: prodId, nome: produto.nome, codigo: produto.codigo, unidade, quantidade: qtd, preco: precoInicial });
+  }
+
+  document.getElementById('edit-ped-prod-input').value   = '';
+  document.getElementById('edit-ped-prod-id').value      = '';
+  document.getElementById('edit-ped-prod-unidade').value = '';
+  document.getElementById('edit-ped-qty').value          = '';
+  const label = document.getElementById('edit-ped-qty-label');
+  if (label) label.innerText = 'Quantidade';
+
+  renderItensEdicao();
+}
+
+function renderItensEdicao() {
+  const wrap = document.getElementById('edit-ped-items-wrap');
+  if (!wrap) return;
+  if (APP_STATE.sacolaEdicao.length === 0) {
+    wrap.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="empty-icon">🛒</div><div class="empty-desc">Nenhum item.</div></div>`;
+    return;
+  }
+  let html = `<div class="items-header" style="grid-template-columns:1fr 110px 110px 38px;"><span>Item / SKU</span><span style="text-align:right">Qtd / Un.</span><span style="text-align:right">Preço Unit.</span><span></span></div>`;
+  APP_STATE.sacolaEdicao.forEach((item, idx) => {
+    html += `
+      <div class="item-row" style="grid-template-columns:1fr 110px 110px 38px;">
+        <div>
+          <div class="item-name">${item.nome} ${!item.item_id ? '<span class="badge badge-green" style="margin-left:4px;">novo</span>' : ''}</div>
+          <div class="item-code">${item.codigo}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+          <input type="number" value="${item.quantidade}" min="0.001" step="any"
+            style="width:60px;text-align:right;" onchange="updateItemEdicaoQty(${idx}, this.value)">
+          <span style="font-size:11px;color:var(--muted);font-family:var(--mono);min-width:24px;">${item.unidade}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+          <span style="font-size:11px;color:var(--muted);">R$</span>
+          <input type="number" value="${Number(item.preco).toFixed(2)}" min="0" step="0.01"
+            style="width:70px;text-align:right;" onchange="updateItemEdicaoPreco(${idx}, this.value)">
+        </div>
+        <button class="btn btn-danger btn-xs btn-icon" onclick="removeItemEdicao(${idx})">✕</button>
+      </div>`;
+  });
+  wrap.innerHTML = html;
+}
+
+function updateItemEdicaoQty(idx, val) {
+  APP_STATE.sacolaEdicao[idx].quantidade = parseFloat(val) || 0;
+}
+function updateItemEdicaoPreco(idx, val) {
+  APP_STATE.sacolaEdicao[idx].preco = parseFloat(val) || 0;
+}
+function removeItemEdicao(idx) {
+  APP_STATE.sacolaEdicao.splice(idx, 1);
+  renderItensEdicao();
+}
+
+async function salvarEdicaoPedido() {
+  const pedidoId = APP_STATE.pedidoEdicaoId;
+  if (!pedidoId) return;
+  if (APP_STATE.sacolaEdicao.length === 0) return showToast("O pedido precisa ter ao menos 1 item.", "warn");
+
+  const transp = document.getElementById('edit-ped-transp').value.trim();
+  const obs    = document.getElementById('edit-ped-obs').value.trim();
+
+  try {
+    const pedidoOriginal = APP_STATE.pedidos.find(p => p.id == pedidoId);
+    const itensOriginais = pedidoOriginal?.pedido_itens || [];
+    const idsAtuais = APP_STATE.sacolaEdicao.filter(i => i.item_id).map(i => i.item_id);
+
+    const idsRemover = itensOriginais.filter(i => !idsAtuais.includes(i.id)).map(i => i.id);
+    if (idsRemover.length) {
+      const { error } = await _supabase.from('pedido_itens').delete().in('id', idsRemover);
+      if (error) throw error;
+    }
+
+    for (const item of APP_STATE.sacolaEdicao.filter(i => i.item_id)) {
+      const { error } = await _supabase.from('pedido_itens')
+        .update({ quantidade: item.quantidade, preco_unitario: item.preco })
+        .eq('id', item.item_id);
+      if (error) throw error;
+    }
+
+    const novos = APP_STATE.sacolaEdicao.filter(i => !i.item_id).map(i => ({
+      pedido_id: pedidoId, produto_id: i.produto_id, quantidade: i.quantidade, preco_unitario: i.preco
+    }));
+    if (novos.length) {
+      const { error } = await _supabase.from('pedido_itens').insert(novos);
+      if (error) throw error;
+    }
+
+    const sessao = JSON.parse(localStorage.getItem('rk_session') || '{}');
+    const { error: pedErr } = await _supabase.from('pedidos').update({
+      transportadora: transp,
+      observacoes: obs,
+      impressa: false,
+      aviso_edicao: true,
+      alterado_por: sessao.nome || sessao.usuario || 'Desconhecido',
+      alterado_em: new Date().toISOString()
+    }).eq('id', pedidoId);
+    if (pedErr) throw pedErr;
+
+    showToast("Pedido atualizado! Nova etiqueta disponível em Etiquetas.");
+    await carregarTodosOsDados();
+
+    APP_STATE.sacolaEdicao = [];
+    APP_STATE.pedidoEdicaoId = null;
+    voltarParaHistoricoEdicao();
+    navToBtn('etiquetas');
+  } catch(err) { showToast("Erro ao salvar edição: " + err.message, "err"); }
 }
 
 function limparFiltros() {
@@ -2602,9 +2988,10 @@ function renderEtiquetas() {
       ? `<div class="etiq-stamp stamp-printed">✅ Impressa</div>`
       : `<div class="etiq-stamp stamp-pending">⏳ Pendente</div>`;
 
+    const aviso = p.aviso_edicao ? '⚠️ ADIÇÃO DE PRODUTOS' : null;
     wrap.innerHTML = `
       ${stamp}
-      ${buildEtiquetaHTML(p)}
+      ${buildEtiquetaHTML(p, aviso)}
       <div class="etiq-actionbar">
         <button class="btn btn-blue btn-sm" onclick="printSingleDirect('${p.id}')" title="Imprimir etiqueta">🖨️ Imprimir</button>
         <button class="btn ${impressa ? 'btn-ghost' : 'btn-green'} btn-sm btn-toggle-impressa"
@@ -2620,13 +3007,15 @@ function renderEtiquetas() {
 // Marcar/desmarcar manualmente
 async function toggleImpressaEtiqueta(id, atual) {
   try {
-    await _supabase.from('pedidos').update({ impressa: !atual }).eq('id', id);
+    const payload = { impressa: !atual };
+    if (!atual) payload.aviso_edicao = false; // limpa o aviso ao marcar como impressa
+    await _supabase.from('pedidos').update(payload).eq('id', id);
     showToast(!atual ? "Marcada como impressa!" : "Desmarcada!");
     await carregarTodosOsDados();
     renderEtiquetas();
   } catch(err) { showToast("Erro: " + err.message, "err"); }
 }
-function buildEtiquetaHTML(p) {
+function buildEtiquetaHTML(p, notaExtra) {
   const cli = p.clientes || { nome: 'Desconhecido' };
   const total = p.pedido_itens?.reduce((a,i)=>a+i.quantidade,0)||0;
 const rows = `
@@ -2644,7 +3033,7 @@ const rows = `
   return `
     <div class="etiq-card" style="color:#000">
       <div class="etiq-hd"><span class="etiq-hd-brand">RK INOVA</span><span class="etiq-hd-num">#${p.numero_pedido}</span></div>
-      <div class="etiq-body">
+${notaExtra ? `<div class="etiq-aviso" style="background:#e74c3c;color:#fff;text-align:center;font-weight:700;font-size:13px;letter-spacing:1px;padding:6px 10px;border-top:2px solid #000;border-bottom:2px solid #000;">${notaExtra}</div>` : ''}      <div class="etiq-body">
         <div class="etiq-lbl">Destinatário</div><div class="etiq-val">${cli.nome}</div>
         <div class="etiq-div"></div>
         <div class="etiq-items-lbl">Itens do Pedido</div>
@@ -2660,7 +3049,7 @@ function visualizarEtiquetaDirect(pedidoId) {
   const p = APP_STATE.pedidos.find(x => x.id == pedidoId);
   if (!p) return;
   const zone = document.getElementById('modal-render-zone');
-  if (zone) { zone.innerHTML = buildEtiquetaHTML(p); generateNativeBarcode(`bc-${p.id}`, p.numero_pedido); }
+  if (zone) { zone.innerHTML = buildEtiquetaHTML(p, p.aviso_edicao ? '⚠️ ADIÇÃO DE PRODUTOS' : null); generateNativeBarcode(`bc-${p.id}`, p.numero_pedido); }
   const btn = document.getElementById('modal-print-btn');
   if (btn) btn.onclick = () => printSingleDirect(p.id);
   document.getElementById('modal-etiq').classList.add('open');
@@ -2671,13 +3060,13 @@ async function printSingleDirect(id) {
   if (!p) return;
   const z = document.getElementById('print-zone');
   if (z) { 
-    z.innerHTML = buildEtiquetaHTML(p); 
+    z.innerHTML = buildEtiquetaHTML(p, p.aviso_edicao ? '⚠️ ADIÇÃO DE PRODUTOS' : null); 
     generateNativeBarcode(`bc-${p.id}`, p.numero_pedido); 
     window.print();
   }
-  // Marca como impressa após imprimir
+  // Marca como impressa e limpa o aviso após imprimir
   try {
-    await _supabase.from('pedidos').update({ impressa: true }).eq('id', id);
+    await _supabase.from('pedidos').update({ impressa: true, aviso_edicao: false }).eq('id', id);
     showToast("Etiqueta marcada como impressa!");
     await carregarTodosOsDados();
     renderEtiquetas();
@@ -2688,7 +3077,7 @@ function imprimirTodas() {
   const z = document.getElementById('print-zone');
   if (!z) return;
   if (!APP_STATE.pedidos.length) return showToast("Nenhuma etiqueta para imprimir","warn");
-  z.innerHTML = APP_STATE.pedidos.map(p => buildEtiquetaHTML(p)).join('');
+  z.innerHTML = APP_STATE.pedidos.map(p => buildEtiquetaHTML(p, p.aviso_edicao ? '⚠️ ADIÇÃO DE PRODUTOS' : null)).join('');
   APP_STATE.pedidos.forEach(p => generateNativeBarcode(`bc-${p.id}`, p.numero_pedido));
   window.print();
 }
@@ -2713,8 +3102,8 @@ function exportarDados() {
   } else if (paginaAtiva === 'produtos') {
     exportarCSV(
       APP_STATE.produtos,
-      ['codigo','nome','unidade','peso','preco','cst','icms','ncm'],
-      ['Código','Nome','Unidade','Peso(kg)','Preço Venda','CST','ICMS(%)','NCM'],
+      ['codigo','nome','unidade','peso','preco_a','preco_b','preco_c','cst','icms','ncm'],
+      ['Código','Nome','Unidade','Peso(kg)','Preço A','Preço B','Preço C','CST','ICMS(%)','NCM'],
       'produtos'
     );
   } else {
@@ -2839,13 +3228,16 @@ async function importarProdutos(registros) {
     'Nome':         'nome',
     'Unidade':      'unidade',
     'Peso(kg)':     'peso',
-    'Preço Venda':  'preco',
+    'Preço A':      'preco_a',
+    'Preço B':      'preco_b',
+    'Preço C':      'preco_c',
     'CST':          'cst',
     'ICMS(%)':      'icms',
     'NCM':          'ncm',
     // compatibilidade
     'codigo':'codigo','nome':'nome','unidade':'unidade',
-    'peso':'peso','preco':'preco','cst':'cst','icms':'icms','ncm':'ncm'
+    'peso':'peso','preco_a':'preco_a','preco_b':'preco_b','preco_c':'preco_c',
+    'cst':'cst','icms':'icms','ncm':'ncm'
   };
 
   const payload = registros.map(r => {
@@ -2855,9 +3247,11 @@ async function importarProdutos(registros) {
       if (campo) obj[campo] = v;
     });
     // converte numéricos
-    if (obj.peso)  obj.peso  = parseFloat(String(obj.peso).replace(',','.'))  || 0;
-    if (obj.preco) obj.preco = parseFloat(String(obj.preco).replace(',','.')) || 0;
-    if (obj.icms)  obj.icms  = parseFloat(String(obj.icms).replace(',','.'))  || 0;
+    if (obj.peso)     obj.peso     = parseFloat(String(obj.peso).replace(',','.'))     || 0;
+    if (obj.preco_a)  obj.preco_a  = parseFloat(String(obj.preco_a).replace(',','.'))  || 0;
+    if (obj.preco_b)  obj.preco_b  = parseFloat(String(obj.preco_b).replace(',','.'))  || 0;
+    if (obj.preco_c)  obj.preco_c  = parseFloat(String(obj.preco_c).replace(',','.'))  || 0;
+    if (obj.icms)     obj.icms     = parseFloat(String(obj.icms).replace(',','.'))     || 0;
     return obj;
   }).filter(o => o.codigo && o.nome);
 
