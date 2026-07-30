@@ -1561,9 +1561,12 @@ async function carregarProdutosPaginado(page = 1, pageSize = 100, termoBusca = '
   APP_STATE.produtosSearchServer = termoBusca;
 }
 
-function getProdutosVinculados(clienteId) {
+async function getProdutosVinculados(clienteId) {
   const ids = APP_STATE.clienteProdutos.filter(cp => cp.cliente_id == clienteId).map(cp => cp.produto_id);
-  return APP_STATE.produtos.filter(p => ids.includes(p.id));
+  if (!ids.length) return [];
+  const { data, error } = await _supabase.from('produtos').select('*').in('id', ids);
+  if (error) { console.error("Produtos vinculados:", error.message); return []; }
+  return data || [];
 }
 
 function getClientesVinculados(produtoId) {
@@ -1944,7 +1947,7 @@ async function editarCliente(id) {
   document.getElementById('edit-cli-tipo').value = c.tipo || '';
   popularSelectRepresentantes('edit-cli-representante', c.representante_id);
 
-  APP_STATE.produtosVinculadosTemp = getProdutosVinculados(c.id);
+  APP_STATE.produtosVinculadosTemp = await getProdutosVinculados(c.id);
   renderProdutosVinculados();
 
   document.querySelectorAll('.page').forEach(p => { p.style.removeProperty('display'); p.classList.remove('active'); });
@@ -2436,7 +2439,7 @@ function acCliente(val) {
   list.classList.add('open');
 }
 
-function selectAcCliente_id(id) {
+async function selectAcCliente_id(id) {
   const c = APP_STATE.clientes.find(x => x.id == id);
   if (!c) return;
   document.getElementById('fat-cli-input').value  = c.nome;
@@ -2445,7 +2448,7 @@ function selectAcCliente_id(id) {
   document.getElementById('fat-cli-cidade').value = c.cidade ? `${c.cidade} - ${c.uf||''}` : '';
   document.getElementById('fat-cli-fields').style.display = 'grid';
 
-  APP_STATE.produtosClienteAtual = getProdutosVinculados(id);
+  APP_STATE.produtosClienteAtual = await getProdutosVinculados(id);
   APP_STATE.mostrarTodosProdutos = false;
 
   closeAc('ac-cli');
