@@ -723,7 +723,7 @@ tbody tr:hover td { background: #1e2336; }
         </div>
         <div class="field" style="width:120px;">
           <label id="edit-ped-qty-label">Quantidade</label>
-          <input type="number" id="edit-ped-qty" placeholder="0" min="0.001" step="any">
+          <input type="text" inputmode="decimal" id="edit-ped-qty" placeholder="0 ou 12,5" autocomplete="off">
         </div>
         <button class="btn btn-ghost" onclick="addItemEdicao()" style="margin-bottom:1px;">＋ Add</button>
       </div>
@@ -1215,7 +1215,7 @@ tbody tr:hover td { background: #1e2336; }
           </div>
           <div class="field" style="width:120px;">
             <label id="fat-qty-label">Quantidade</label>
-            <input type="number" id="fat-qty" placeholder="0" min="0.001" step="any">
+            <input type="text" inputmode="decimal" id="fat-qty" placeholder="0 ou 12,5" autocomplete="off">
           </div>
           <button class="btn btn-ghost" onclick="addItem()" style="margin-bottom:1px;">＋ Add</button>
         </div>
@@ -1370,6 +1370,14 @@ document.addEventListener("DOMContentLoaded", () => {
 async function sha256(texto) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Converte "12,5" ou "12.5" em número float. Aceita vírgula ou ponto como decimal.
+function parseNumBR(v) {
+  if (v === null || v === undefined) return 0;
+  const s = String(v).trim().replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
 }
 
 function alternarTelaLogin(tela) {
@@ -2661,7 +2669,7 @@ function renderProdutosVinculados() {
 function addItem() {
   const prodId  = document.getElementById('fat-prod-id').value;
   const unidade = document.getElementById('fat-prod-unidade').value || 'UN';
-  const qtd     = parseFloat(document.getElementById('fat-qty').value);
+  const qtd     = parseNumBR(document.getElementById('fat-qty').value);
 
   if (!prodId) return showToast("Selecione um produto válido da lista.", "warn");
   if (!qtd || qtd <= 0) return showToast(`Informe a quantidade em ${unidade}.`, "warn");
@@ -2762,9 +2770,8 @@ function renderSacola() {
           <div class="item-code">${item.codigo}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
-          <input type="number" value="${item.quantidade}" min="0.001" step="any"
-            style="width:60px;text-align:right;" onchange="updateSacolaQty(${idx}, this.value)">
-          <span style="font-size:11px;color:var(--muted);font-family:var(--mono);min-width:24px;">${item.unidade}</span>
+<input type="text" inputmode="decimal" value="${String(item.quantidade).replace('.',',')}"
+  style="width:60px;text-align:right;" onchange="updateItemEdicaoQty(${idx}, this.value)">          <span style="font-size:11px;color:var(--muted);font-family:var(--mono);min-width:24px;">${item.unidade}</span>
         </div>
         ${colunaPreco}
         <button class="btn btn-danger btn-xs btn-icon" onclick="removeSacolaItem(${idx})">✕</button>
@@ -2780,7 +2787,7 @@ function renderSacola() {
 }
 
 function updateSacolaQty(idx, val) {
-  APP_STATE.sacola[idx].quantidade = parseFloat(val) || 0;
+  APP_STATE.sacola[idx].quantidade = parseNumBR(val);
   renderSacola();
 }
 
@@ -3264,7 +3271,7 @@ function selectAcProduto_id(id) {
 function addItemEdicao() {
   const prodId  = document.getElementById('edit-ped-prod-id').value;
   const unidade = document.getElementById('edit-ped-prod-unidade').value || 'UN';
-  const qtd     = parseFloat(document.getElementById('edit-ped-qty').value);
+  const qtd     = parseNumBR(document.getElementById('edit-ped-qty').value);
 
   if (!prodId) return showToast("Selecione um produto válido da lista.", "warn");
   if (!qtd || qtd <= 0) return showToast(`Informe a quantidade em ${unidade}.`, "warn");
@@ -3308,9 +3315,9 @@ function renderItensEdicao() {
           <div class="item-code">${item.codigo}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
-          <input type="number" value="${item.quantidade}" min="0.001" step="any"
-            style="width:60px;text-align:right;" onchange="updateItemEdicaoQty(${idx}, this.value)">
-          <span style="font-size:11px;color:var(--muted);font-family:var(--mono);min-width:24px;">${item.unidade}</span>
+  <input type="text" inputmode="decimal" value="${String(item.quantidade).replace('.',',')}"
+  style="width:60px;text-align:right;" onchange="updateSacolaQty(${idx}, this.value)">
+            <span style="font-size:11px;color:var(--muted);font-family:var(--mono);min-width:24px;">${item.unidade}</span>
         </div>
         <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
           <span style="font-size:11px;color:var(--muted);">R$</span>
@@ -3324,7 +3331,7 @@ function renderItensEdicao() {
 }
 
 function updateItemEdicaoQty(idx, val) {
-  APP_STATE.sacolaEdicao[idx].quantidade = parseFloat(val) || 0;
+  APP_STATE.sacolaEdicao[idx].quantidade = parseNumBR(val);
 }
 function updateItemEdicaoPreco(idx, val) {
   APP_STATE.sacolaEdicao[idx].preco = parseFloat(val) || 0;
