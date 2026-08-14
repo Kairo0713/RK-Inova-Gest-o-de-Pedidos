@@ -113,6 +113,7 @@ body {
 .form-row-2 { grid-template-columns: 1fr 1fr; }
 .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
 .form-row-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.form-row-5 { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
 
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
@@ -527,7 +528,7 @@ div[style*="align-items:flex-end"] > * {
   .fat-preview-wrap { display: none; } /* esconde prévia no mobile */
 
   /* Formulários */
-  .form-row-2, .form-row-3, .form-row-4 { grid-template-columns: 1fr; }
+  .form-row-2, .form-row-3, .form-row-4, .form-row-5 { grid-template-columns: 1fr; }
 
   /* Itens do pedido (sacola/edição) — evita overflow horizontal */
 .items-header, .item-row {
@@ -1198,7 +1199,7 @@ div[style*="align-items:flex-end"] > * {
           <span>🧾 Dados do Pedido</span>
           <button class="btn btn-blue btn-sm" onclick="exportarPDFFaturamento()">📄 Exportar PDF</button>
         </div>        <div class="form-grid">
-          <div class="form-row form-row-4">
+          <div class="form-row form-row-5">
             <div class="field"><label>Nº do Pedido *</label><input type="text" id="fat-num" placeholder="PED-001"></div>
             <div class="field"><label>Data do Pedido</label><input type="date" id="fat-data"></div>
             <div class="field"><label>Transportadora</label><input type="text" id="fat-transp" placeholder="Transportadora"></div>
@@ -1207,6 +1208,13 @@ div[style*="align-items:flex-end"] > * {
                 <option value="A">Tipo A</option>
                 <option value="B">Tipo B</option>
                 <option value="C">Tipo C</option>
+              </select>
+            </div>
+            <div class="field"><label>Empresas</label>
+              <select id="fat-empresa">
+                <option value="matriz">Matriz</option>
+                <option value="filial-sul">Filial - Sul</option>
+                <option value="filial-minas">Filial - Minas</option>
               </select>
             </div>
           </div>
@@ -2904,11 +2912,12 @@ function removeSacolaItem(idx) {
 
 // ── GERAR PEDIDO ──
 async function gerarPedido() {
-  const num    = document.getElementById('fat-num').value.trim();
-  const data   = document.getElementById('fat-data').value || new Date().toISOString().split('T')[0];
-  const transp = document.getElementById('fat-transp').value.trim();
-  const cliId  = document.getElementById('fat-cli-id').value;
-  const obs    = document.getElementById('fat-obs').value.trim();
+  const num     = document.getElementById('fat-num').value.trim();
+  const data    = document.getElementById('fat-data').value || new Date().toISOString().split('T')[0];
+  const transp  = document.getElementById('fat-transp').value.trim();
+  const cliId   = document.getElementById('fat-cli-id').value;
+  const obs     = document.getElementById('fat-obs').value.trim();
+  const empresa = document.getElementById('fat-empresa')?.value || 'matriz';
 
   if (!num || !cliId) return showToast("Nº do Pedido e Cliente são obrigatórios.", "warn");
   if (APP_STATE.sacola.length === 0) return showToast("Adicione pelo menos 1 item.", "warn");
@@ -2918,6 +2927,7 @@ async function gerarPedido() {
 const {data: pedData, error: pedErr} = await _supabase.from('pedidos').insert([
       { numero_pedido: num, data_pedido: data, transportadora: transp, cliente_id: cliId, observacoes: obs,
         tipo_preco: getTipoPrecoSelecionado(),
+        empresa: empresa,
         status: 'pendente',
         faturado_por: sessao.nome || sessao.usuario || 'Desconhecido' }
     ]).select();
@@ -2947,6 +2957,7 @@ const {data: pedData, error: pedErr} = await _supabase.from('pedidos').insert([
     document.getElementById('fat-cli-fields').style.display = 'none';
     document.getElementById('fat-num').value = '';
     document.getElementById('fat-tipo-preco').value = 'A';
+    document.getElementById('fat-empresa').value = 'matriz';
     APP_STATE.sacola = [];
     APP_STATE.produtosClienteAtual = [];
     APP_STATE.mostrarTodosProdutos = false;
@@ -3133,12 +3144,16 @@ function renderHistorico() {
   filtrados.forEach(p => {
     const cliNome = p.clientes?.nome||'—';
     const total   = p.pedido_itens?.reduce((a,i)=>a+i.quantidade,0)||0;
+    const empresaLabel = { 'matriz':'Matriz', 'filial-sul':'Filial - Sul', 'filial-minas':'Filial - Minas' }[p.empresa] || 'Matriz';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><strong>#${p.numero_pedido}</strong></td>
       <td>${new Date(p.data_pedido).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
       <td>${cliNome}</td>
-      <td><span class="badge badge-blue">Tipo ${p.tipo_preco || 'A'}</span></td>
+      <td>
+        <span class="badge badge-blue">Tipo ${p.tipo_preco || 'A'}</span><br>
+        <span class="badge ${p.empresa==='filial-sul'?'badge-purple':'badge-gray'}" style="margin-top:3px;">${empresaLabel}</span>
+      </td>
       <td>
   <div style="display:flex;flex-direction:column;gap:4px;">
     ${p.pedido_itens?.map(i => {
@@ -3195,7 +3210,9 @@ return `<div style="display:flex;flex-direction:column;gap:3px;padding:4px 0;bor
       <span style="color:var(--muted);"> · ${new Date(p.alterado_em).toLocaleString('pt-BR')}</span>
     </div>` : ''}
 </td>
-      <td><button class="btn btn-ghost btn-xs" onclick="visualizarEtiquetaDirect('${p.id}')">🏷️ Ver</button></td>
+      <td>${p.empresa === 'filial-sul'
+        ? '<span style="font-size:11px;color:var(--muted);">— sem etiqueta —</span>'
+        : `<button class="btn btn-ghost btn-xs" onclick="visualizarEtiquetaDirect('${p.id}')">🏷️ Ver</button>`}</td>
       <td class="td-actions">
         <button class="btn btn-blue btn-xs" onclick="editarPedido('${p.id}')">✏️ Editar</button>
         <button class="btn btn-danger btn-xs btn-icon" onclick="deletarPedido('${p.id}')">🗑️</button>
@@ -3504,6 +3521,7 @@ function renderEtiquetas() {
   grid.innerHTML = '';
 
   let filtrados = APP_STATE.pedidos.filter(p => {
+    if (p.empresa === 'filial-sul') return false; // Filial Sul não gera etiqueta
     const matchSearch =
       (p.clientes?.nome||'').toLowerCase().includes(search) ||
       (p.numero_pedido||'').toLowerCase().includes(search);
@@ -3622,9 +3640,10 @@ async function printSingleDirect(id) {
 function imprimirTodas() {
   const z = document.getElementById('print-zone');
   if (!z) return;
-  if (!APP_STATE.pedidos.length) return showToast("Nenhuma etiqueta para imprimir","warn");
-  z.innerHTML = APP_STATE.pedidos.map(p => buildEtiquetaHTML(p, p.aviso_edicao ? '⚠️ ADIÇÃO DE PRODUTOS' : null)).join('');
-  APP_STATE.pedidos.forEach(p => generateNativeBarcode(`bc-${p.id}`, p.numero_pedido));
+  const pedidosParaImprimir = APP_STATE.pedidos.filter(p => p.empresa !== 'filial-sul');
+  if (!pedidosParaImprimir.length) return showToast("Nenhuma etiqueta para imprimir","warn");
+  z.innerHTML = pedidosParaImprimir.map(p => buildEtiquetaHTML(p, p.aviso_edicao ? '⚠️ ADIÇÃO DE PRODUTOS' : null)).join('');
+  pedidosParaImprimir.forEach(p => generateNativeBarcode(`bc-${p.id}`, p.numero_pedido));
   window.print();
 }
 
@@ -4010,6 +4029,7 @@ function renderConferencia() {
   lista.innerHTML = '';
 
   const filtrados = APP_STATE.pedidos.filter(p => {
+    if (p.empresa === 'filial-sul') return false; // Filial Sul não passa por conferência
     const nome = (p.clientes?.nome||'').toLowerCase();
     const num  = (p.numero_pedido||'').toLowerCase();
     const matchSearch = nome.includes(search) || num.includes(search);
@@ -4297,7 +4317,7 @@ const {error} = await _supabase.from('pedidos').update({
   } catch(err) { showToast("Erro: " + err.message, "err"); }
 }
 function atualizarBadgeConferencia() {
-  const pendentes = APP_STATE.pedidos.filter(p => p.status !== 'finalizado').length;
+  const pendentes = APP_STATE.pedidos.filter(p => p.status !== 'finalizado' && p.empresa !== 'filial-sul').length;
   const badge = document.getElementById('badge-conf');
   if (badge) badge.innerText = pendentes;
   const bnBadge = document.getElementById('bn-badge-conf');
