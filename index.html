@@ -1410,6 +1410,69 @@ function parseNumBR(v) {
   return isNaN(n) ? 0 : n;
 }
 
+// ── ENTER = AVANÇAR PARA O PRÓXIMO CAMPO / SALVAR NO ÚLTIMO ──
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return;
+
+  const el = e.target;
+  if (!el) return;
+  const tag = el.tagName;
+  if (tag !== 'INPUT' && tag !== 'SELECT') return;
+  if (tag === 'INPUT' && ['checkbox', 'radio', 'file'].includes(el.type)) return;
+  if (el.hasAttribute('onkeydown')) return; // login já trata Enter manualmente
+
+  // 1) Campos que devem ADICIONAR item (não navegar nem salvar)
+  const acoesEspeciais = {
+    'fat-qty':      () => addItem(),
+    'edit-ped-qty': () => addItemEdicao()
+  };
+  if (acoesEspeciais[el.id]) {
+    e.preventDefault();
+    acoesEspeciais[el.id]();
+    return;
+  }
+
+  // 2) Campos de busca/autocomplete: Enter não navega nem salva
+  const camposBusca = [
+    'fat-cli-input', 'fat-prod-input', 'edit-ped-prod-input',
+    'vinc-prod-input', 'prod-cli-input', 'edit-prod-cli-input',
+    'cli-search', 'prod-search', 'rep-search', 'hist-search',
+    'etiq-search', 'conf-search', 'fiscal-search'
+  ];
+  if (camposBusca.includes(el.id)) { e.preventDefault(); return; }
+
+  // 3) Linha de item já lançada (sacola / edição de pedido): só confirma o valor
+  if (el.hasAttribute('onchange') && el.closest('.item-row')) {
+    e.preventDefault();
+    el.blur();
+    return;
+  }
+
+  e.preventDefault();
+
+  // 4) Navega para o próximo campo do MESMO formulário (.form-grid);
+  //    só aciona Salvar/Confirmar quando for realmente o último campo dele
+  const container = el.closest('.form-grid') || el.closest('.card') || document;
+  const candidatos = Array.from(
+    container.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])')
+  ).filter(c =>
+    !camposBusca.includes(c.id) &&
+    !acoesEspeciais[c.id] &&
+    c.offsetParent !== null // ignora campos escondidos (display:none)
+  );
+
+  const idx = candidatos.indexOf(el);
+  const proximo = idx > -1 ? candidatos[idx + 1] : null;
+
+  if (proximo) {
+    proximo.focus();
+    if (proximo.select) proximo.select();
+  } else {
+    const btn = container.querySelector('button.btn-primary:not([disabled])');
+    if (btn) btn.click();
+  }
+});
+
 function alternarTelaLogin(tela) {
   document.getElementById('login-form-login').style.display    = tela === 'login'    ? 'flex' : 'none';
   document.getElementById('login-form-cadastro').style.display = tela === 'cadastro' ? 'flex' : 'none';
