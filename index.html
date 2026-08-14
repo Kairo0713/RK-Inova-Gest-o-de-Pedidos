@@ -455,6 +455,21 @@ tbody tr:hover td { background: #1e2336; }
   .sidebar { display: none; }
   .main { margin-left: 0; padding-bottom: 70px; }
 
+  #etiq-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
+
+  .etiq-val { font-size: 26px !important; word-break: break-word; }
+  .etiq-card { max-width: 100%; }
+
+  div[style*="align-items:flex-end"] {
+  flex-wrap: wrap !important;
+  row-gap: 8px !important;
+}
+div[style*="align-items:flex-end"] > * {
+  flex: 1 1 auto !important;
+  min-width: 130px;
+}
+
+
   /* Topbar vira header de app */
   .topbar {
     padding: 0 16px;
@@ -505,14 +520,29 @@ tbody tr:hover td { background: #1e2336; }
     min-width: 16px; text-align: center;
   }
 
-  /* Grids viram coluna única */
-  .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .two-col, .two-col-rev, .fat-layout, .three-col { grid-template-columns: 1fr; }
+/* Grids viram coluna única */
+.stats-row { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+.stats-row .stat-card { padding: 12px 14px; }
+.stats-row .stat-value { font-size: 19px; }  .two-col, .two-col-rev, .fat-layout, .three-col { grid-template-columns: 1fr; }
   .fat-preview-wrap { display: none; } /* esconde prévia no mobile */
 
   /* Formulários */
   .form-row-2, .form-row-3, .form-row-4 { grid-template-columns: 1fr; }
 
+  /* Itens do pedido (sacola/edição) — evita overflow horizontal */
+.items-header, .item-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+.items-header > *:first-child,
+.item-row > *:first-child { flex: 1 1 100%; }
+.items-header > *:not(:first-child),
+.item-row > *:not(:first-child) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.item-row input { width: 100% !important; box-sizing: border-box; }
   /* Cards */
   .card { padding: 14px; }
 
