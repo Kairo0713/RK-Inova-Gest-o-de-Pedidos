@@ -659,6 +659,9 @@ div[style*="align-items:flex-end"] > * {
       <span class="nav-icon">📋</span><span>Histórico</span>
       <span class="nav-badge" id="badge-hist">0</span>
     </button>
+    <button class="nav-item" data-page="relatorios" onclick="navTo(this,'relatorios')">
+      <span class="nav-icon">📑</span><span>Relatórios</span>
+    </button>
     <button class="nav-item" data-page="etiquetas" onclick="navTo(this,'etiquetas')">
       <span class="nav-icon">🏷️</span><span>Etiquetas</span>
     </button>
@@ -712,6 +715,7 @@ div[style*="align-items:flex-end"] > * {
     <th>💰 Comissões</th>
     <th>🧾 Faturamento</th>
     <th>📋 Histórico</th>
+    <th>📑 Relatórios</th>
     <th>🏷️ Etiquetas</th>
     <th>✅ Conferência</th>
     <th></th>
@@ -1319,6 +1323,54 @@ div[style*="align-items:flex-end"] > * {
   </div>
 </div>
 
+<!-- ── RELATÓRIOS ── -->
+<div class="page" id="page-relatorios">
+  <div class="hist-filters">
+    <button class="btn btn-blue btn-sm" onclick="exportarPDFRelatorio()">📄 Exportar PDF</button>
+    <span style="font-size:12px;font-weight:600;color:var(--muted);">Período:</span>
+    <input type="date" id="rel-de" onchange="renderRelatorios()" style="width:160px;">
+    <span style="color:var(--muted);">até</span>
+    <input type="date" id="rel-ate" onchange="renderRelatorios()" style="width:160px;">
+    <select id="rel-filter-cli" onchange="renderRelatorios()" style="width:220px;">
+      <option value="">Todos os clientes</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="
+      document.getElementById('rel-de').value='';
+      document.getElementById('rel-ate').value='';
+      document.getElementById('rel-filter-cli').value='';
+      renderRelatorios();">✕ Limpar</button>
+    <span class="badge badge-gray" id="rel-count-badge" style="margin-left:auto;">0 pedidos</span>
+  </div>
+
+  <div class="stats-row" style="grid-template-columns:repeat(3,1fr);">
+    <div class="stat-card">
+      <div class="stat-label">Pedidos no período</div>
+      <div class="stat-value" id="rel-qtd">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Itens totais</div>
+      <div class="stat-value" id="rel-itens">0</div>
+    </div>
+    <div class="stat-card" style="border-color:var(--green);background:var(--green-bg);">
+      <div class="stat-label" style="color:var(--green);">Valor total</div>
+      <div class="stat-value" style="font-size:18px;color:var(--green);" id="rel-valor-total">R$ 0,00</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Itens</th><th>Valor do Pedido</th><th>Status</th></tr></thead>
+        <tbody id="rel-tbody"></tbody>
+      </table>
+      <div class="empty-state" id="rel-empty" style="display:none;">
+        <div class="empty-icon">📑</div><div class="empty-title">Nenhum pedido encontrado</div>
+        <div class="empty-desc">Ajuste os filtros de período ou cliente.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── ETIQUETAS ── -->
 <div class="page" id="page-etiquetas">
 <div style="display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
@@ -1862,6 +1914,7 @@ if (pg) {
   if (pageId === 'representantes') renderRepresentantes();
   if (pageId === 'comissoes')      renderComissoes();
   if (pageId === 'historico')      renderHistorico();
+  if (pageId === 'relatorios')     renderRelatorios();
   if (pageId === 'etiquetas') {
   const filtro = document.getElementById('etiq-filter-status');
   if (filtro && !filtro.value) filtro.value = 'pendente';
@@ -4503,6 +4556,155 @@ function exportarPDFHistorico() {
   showToast("PDF do histórico gerado!");
 }
 
+// ── RELATÓRIOS ──
+function renderRelatorios() {
+  const de  = document.getElementById('rel-de')?.value || '';
+  const ate = document.getElementById('rel-ate')?.value || '';
+  const cliFiltro = document.getElementById('rel-filter-cli')?.value || '';
+
+  const selCli = document.getElementById('rel-filter-cli');
+  if (selCli && selCli.dataset.populado !== 'true') {
+    selCli.innerHTML = '<option value="">Todos os clientes</option>' +
+      APP_STATE.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    selCli.dataset.populado = 'true';
+  }
+
+  const fmt = v => (v||0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  const filtrados = APP_STATE.pedidos.filter(p => {
+    if (de  && p.data_pedido < de)  return false;
+    if (ate && p.data_pedido > ate) return false;
+    if (cliFiltro && String(p.cliente_id) !== String(cliFiltro)) return false;
+    return true;
+  });
+
+  let valorTotalGeral = 0;
+  let itensTotalGeral = 0;
+
+  const tbody = document.getElementById('rel-tbody');
+  if (tbody) {
+    tbody.innerHTML = filtrados.map(p => {
+      const itens = p.pedido_itens || [];
+      let valorPedido = 0;
+      itens.forEach(i => {
+        const preco = (i.preco_unitario != null) ? i.preco_unitario : (i.produtos?.preco_a || 0);
+        valorPedido += preco * (i.quantidade || 0);
+      });
+      valorTotalGeral += valorPedido;
+      itensTotalGeral += itens.length;
+
+      return `<tr>
+        <td><strong>#${p.numero_pedido}</strong></td>
+        <td>${new Date(p.data_pedido).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
+        <td>${p.clientes?.nome || '—'}</td>
+        <td><span class="badge badge-gray">${itens.length} item(ns)</span></td>
+        <td style="font-family:var(--mono);font-weight:700;">${fmt(valorPedido)}</td>
+        <td><span class="badge ${getStatusBadge(p.status)}">${p.status}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('rel-count-badge') && (document.getElementById('rel-count-badge').innerText = `${filtrados.length} pedidos`);
+  document.getElementById('rel-empty') && (document.getElementById('rel-empty').style.display = filtrados.length === 0 ? 'block' : 'none');
+  document.getElementById('rel-qtd') && (document.getElementById('rel-qtd').innerText = filtrados.length);
+  document.getElementById('rel-itens') && (document.getElementById('rel-itens').innerText = itensTotalGeral);
+  document.getElementById('rel-valor-total') && (document.getElementById('rel-valor-total').innerText = fmt(valorTotalGeral));
+}
+
+function exportarPDFRelatorio() {
+  const de  = document.getElementById('rel-de')?.value || '';
+  const ate = document.getElementById('rel-ate')?.value || '';
+  const cliFiltro = document.getElementById('rel-filter-cli')?.value || '';
+
+  const filtrados = APP_STATE.pedidos.filter(p => {
+    if (de  && p.data_pedido < de)  return false;
+    if (ate && p.data_pedido > ate) return false;
+    if (cliFiltro && String(p.cliente_id) !== String(cliFiltro)) return false;
+    return true;
+  });
+
+  if (!filtrados.length) return showToast("Nenhum pedido para exportar.", "warn");
+
+  const fmt = v => (v||0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const nomeCliFiltro = cliFiltro ? (APP_STATE.clientes.find(c => c.id == cliFiltro)?.nome || '') : 'Todos os clientes';
+  const periodoTxt = (de || ate)
+    ? `Período: ${de ? new Date(de+'T00:00:00').toLocaleDateString('pt-BR') : '...'} até ${ate ? new Date(ate+'T00:00:00').toLocaleDateString('pt-BR') : '...'}`
+    : 'Período: Todos';
+
+  const doc = getPDF();
+  let y = pdfHeader(doc, 'Relatório de Histórico de Pedidos', `${periodoTxt} — ${nomeCliFiltro}`);
+
+  let valorTotalGeral = 0;
+
+  filtrados.forEach((p) => {
+    const cliNome = p.clientes?.nome || '—';
+    const dataFmt = new Date(p.data_pedido).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    const itens   = p.pedido_itens || [];
+
+    if (y > 240) { doc.addPage(); y = pdfHeader(doc, 'Relatório de Histórico de Pedidos (cont.)', ''); }
+
+    let valorPedido = 0;
+    itens.forEach(i => {
+      const preco = (i.preco_unitario != null) ? i.preco_unitario : (i.produtos?.preco_a || 0);
+      valorPedido += preco * (i.quantidade || 0);
+    });
+    valorTotalGeral += valorPedido;
+
+    doc.setFillColor(25, 29, 40);
+    doc.rect(14, y, 182, 10, 'F');
+    doc.setTextColor(240, 165, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`#${p.numero_pedido}`, 18, y + 7);
+    doc.setTextColor(200, 200, 200);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(cliNome, 60, y + 7);
+    doc.text(dataFmt, 150, y + 7);
+    doc.text(fmt(valorPedido), 192, y + 7, { align: 'right' });
+    y += 12;
+
+    if (itens.length) {
+      doc.autoTable({
+        startY: y,
+        head: [['Produto', 'Qtd', 'Unidade', 'Preço Unit.', 'Total']],
+        body: itens.map(i => {
+          const preco = (i.preco_unitario != null) ? i.preco_unitario : (i.produtos?.preco_a || 0);
+          return [
+            i.produtos?.nome || '—',
+            i.quantidade,
+            i.produtos?.unidade || 'UN',
+            fmt(preco),
+            fmt(preco * (i.quantidade||0))
+          ];
+        }),
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [74, 144, 226], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 245, 250] },
+        margin: { left: 18, right: 14 },
+        tableWidth: 178
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    doc.setDrawColor(50, 55, 80);
+    doc.line(14, y, 196, y);
+    y += 5;
+  });
+
+  if (y > 260) { doc.addPage(); y = 20; }
+  doc.setFillColor(0, 0, 0);
+  doc.rect(14, y, 182, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Valor total do período: ${fmt(valorTotalGeral)}`, 18, y + 8);
+
+  pdfFooter(doc);
+  doc.save(`relatorio-pedidos-${new Date().toISOString().split('T')[0]}.pdf`);
+  showToast("Relatório PDF gerado!");
+}
+
 // PDF CONFERÊNCIA — pedidos com lotes
 function exportarPDFConferencia() {
   const search = (document.getElementById('conf-search')?.value||'').toLowerCase();
@@ -4754,8 +4956,8 @@ function renderUsuariosAdmin(usuarios) {
   }
   if (empty) empty.style.display = 'none';
 
-  const modulos = ['dashboard','clientes','produtos','representantes','comissoes','faturamento','historico','etiquetas','conferencia'];
-  const icones  = { dashboard:'📊', clientes:'👥', produtos:'📦', representantes:'🧑‍💼', comissoes:'💰', faturamento:'🧾', historico:'📋', etiquetas:'🏷️', conferencia:'✅' };
+  const modulos = ['dashboard','clientes','produtos','representantes','comissoes','faturamento','historico','relatorios','etiquetas','conferencia'];
+  const icones  = { dashboard:'📊', clientes:'👥', produtos:'📦', representantes:'🧑‍💼', comissoes:'💰', faturamento:'🧾', historico:'📋', relatorios:'📑', etiquetas:'🏷️', conferencia:'✅' };
 
   usuarios.forEach(u => {
     const perm = u.permissoes || {};
@@ -4864,6 +5066,7 @@ async function aplicarPermissoes() {
     comissoes:      'comissoes',
     faturamento:    'faturamento',
     historico:      'historico',
+    relatorios:     'relatorios',
     etiquetas:      'etiquetas',
     conferencia:    'conferencia',
   };
