@@ -1234,10 +1234,6 @@ div[style*="align-items:flex-end"] > * {
             </div>
             <input type="hidden" id="fat-cli-id">
           </div>
-          <div class="form-row form-row-2" id="fat-cli-fields" style="display:none;">
-            <div class="field"><label>Endereço</label><input type="text" id="fat-cli-end" placeholder="Endereço"></div>
-            <div class="field"><label>Cidade / UF</label><input type="text" id="fat-cli-cidade" placeholder="Cidade - UF"></div>
-          </div>
           <div class="field">
             <label>Observações</label>
             <textarea id="fat-obs" rows="2" placeholder="Obs. para a etiqueta..."></textarea>
@@ -1503,7 +1499,10 @@ document.addEventListener('keydown', function (e) {
   const el = e.target;
   if (!el) return;
   const tag = el.tagName;
-  if (tag !== 'INPUT' && tag !== 'SELECT') return;
+  // Campos TEXTAREA que devem avançar com Enter (em vez de quebrar linha).
+  // Os demais textareas do sistema mantêm o Enter normal (nova linha).
+  const textareasComAvanco = ['fat-obs'];
+  if (tag !== 'INPUT' && tag !== 'SELECT' && !(tag === 'TEXTAREA' && textareasComAvanco.includes(el.id))) return;
   if (tag === 'INPUT' && ['checkbox', 'radio', 'file'].includes(el.type)) return;
   if (el.hasAttribute('onkeydown')) return; // login já trata Enter manualmente
 
@@ -1542,7 +1541,11 @@ document.addEventListener('keydown', function (e) {
   // 1) Campos que devem ADICIONAR item (não navegar nem salvar)
   const acoesEspeciais = {
     'fat-qty':      () => addItem(),
-    'edit-ped-qty': () => addItemEdicao()
+    'edit-ped-qty': () => addItemEdicao(),
+    'fat-obs':      () => {
+      const prod = document.getElementById('fat-prod-input');
+      if (prod) { prod.focus(); prod.select && prod.select(); }
+    }
   };
   if (acoesEspeciais[el.id]) {
     e.preventDefault();
@@ -1550,10 +1553,12 @@ document.addEventListener('keydown', function (e) {
     return;
   }
 
-  // 2) Campos de busca/autocomplete: Enter não navega nem salva
+  // 2) Campos de busca/filtro (listagens): Enter não navega nem salva.
+  //    Os campos de cliente/produto (fat-cli-input, fat-prod-input etc.) NÃO
+  //    entram aqui — enquanto a lista estiver aberta, o Enter já é tratado
+  //    no bloco 0 acima; com a lista fechada (após selecionar), o Enter deve
+  //    seguir para o bloco 4 e avançar ao próximo campo normalmente.
   const camposBusca = [
-    'fat-cli-input', 'fat-prod-input', 'edit-ped-prod-input',
-    'vinc-prod-input', 'prod-cli-input', 'edit-prod-cli-input',
     'cli-search', 'prod-search', 'rep-search', 'hist-search',
     'etiq-search', 'conf-search', 'fiscal-search'
   ];
@@ -1572,10 +1577,9 @@ document.addEventListener('keydown', function (e) {
   //    só aciona Salvar/Confirmar quando for realmente o último campo dele
   const container = el.closest('.form-grid') || el.closest('.card') || document;
   const candidatos = Array.from(
-    container.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])')
+    container.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])')
   ).filter(c =>
     !camposBusca.includes(c.id) &&
-    !acoesEspeciais[c.id] &&
     c.offsetParent !== null // ignora campos escondidos (display:none)
   );
 
@@ -2707,9 +2711,6 @@ async function selectAcCliente_id(id) {
   if (!c) return;
   document.getElementById('fat-cli-input').value  = c.nome;
   document.getElementById('fat-cli-id').value     = c.id;
-  document.getElementById('fat-cli-end').value    = c.endereco || '';
-  document.getElementById('fat-cli-cidade').value = c.cidade ? `${c.cidade} - ${c.uf||''}` : '';
-  document.getElementById('fat-cli-fields').style.display = 'grid';
 
   APP_STATE.produtosClienteAtual = await getProdutosVinculados(id);
   console.log("Cliente:", c.nome);
@@ -3066,7 +3067,6 @@ const {data: pedData, error: pedErr} = await _supabase.from('pedidos').insert([
     document.getElementById('fat-cli-id').value    = '';
     document.getElementById('fat-transp').value    = '';
     document.getElementById('fat-obs').value       = '';
-    document.getElementById('fat-cli-fields').style.display = 'none';
     document.getElementById('fat-num').value = '';
     document.getElementById('fat-previsao-saida').value = '';
     document.getElementById('fat-tipo-preco').value = 'A';
@@ -4492,8 +4492,6 @@ function exportarPDFFaturamento() {
   const num   = document.getElementById('fat-num')?.value || '—';
   const data  = document.getElementById('fat-data')?.value || '—';
   const cli   = document.getElementById('fat-cli-input')?.value || '—';
-  const end   = document.getElementById('fat-cli-end')?.value || '—';
-  const cid   = document.getElementById('fat-cli-cidade')?.value || '—';
   const transp= document.getElementById('fat-transp')?.value || '—';
   const obs   = document.getElementById('fat-obs')?.value || '—';
 
@@ -4504,7 +4502,7 @@ function exportarPDFFaturamento() {
 
   // Bloco cliente
   doc.setFillColor(30, 35, 54);
-  doc.rect(14, y, 182, 30, 'F');
+  doc.rect(14, y, 182, 24, 'F');
   doc.setTextColor(240, 165, 0);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
@@ -4513,11 +4511,9 @@ function exportarPDFFaturamento() {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.text(`Cliente:       ${cli}`,   18, y + 13);
-  doc.text(`Endereço:      ${end}`,   18, y + 19);
-  doc.text(`Cidade/UF:     ${cid}`,   18, y + 25);
-  doc.text(`Transportadora: ${transp}`, 110, y + 13);
-  doc.text(`Observações:   ${obs}`,   110, y + 19);
-  y += 36;
+  doc.text(`Transportadora: ${transp}`, 18, y + 19);
+  doc.text(`Observações:   ${obs}`,   110, y + 13);
+  y += 30;
 
   // Tabela de itens
   doc.autoTable({
