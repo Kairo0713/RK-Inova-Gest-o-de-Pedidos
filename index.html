@@ -2926,6 +2926,10 @@ const tipoPreco = getTipoPrecoSelecionado();
   if (label) label.innerText = 'Quantidade';
 
   renderSacola();
+
+  // Volta o foco para a busca de produto, facilitando adicionar o próximo item
+  const prodInput = document.getElementById('fat-prod-input');
+  if (prodInput) prodInput.focus();
 }
 
 function renderSacola() {
@@ -3520,6 +3524,10 @@ function addItemEdicao() {
   if (label) label.innerText = 'Quantidade';
 
   renderItensEdicao();
+
+  // Volta o foco para a busca de produto, facilitando adicionar o próximo item
+  const prodInputEdicao = document.getElementById('edit-ped-prod-input');
+  if (prodInputEdicao) prodInputEdicao.focus();
 }
 
 function renderItensEdicao() {
